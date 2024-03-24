@@ -9,13 +9,23 @@ const { DOMAIN } = config;
 const app = new Hono();
 
 app.post("/sendMessage", async (c) => {
-	const { username, apiKey, message } = await c.req.json();
+	const formData = await c.req.formData();
+	const username = formData.get("username");
+	const apiKey = formData.get("apiKey");
+	const message = formData.get("message");
 
 	// check to see if your API key matches
 	let result = db.prepare("select api_key from accounts where username = ?").get(username);
 
 	if (result?.api_key === apiKey) {
-		sendCreateMessage(message, username, c);
+		try {
+			await sendCreateMessage(message, username);
+
+			return c.json({ msg: "ok" });
+		} catch (e) {
+			c.status(400);
+			return c.json({ msg: e.message });
+		}
 	} else {
 		c.status(403);
 		return c.json({ msg: "Invalid API key" });
@@ -39,9 +49,7 @@ async function signAndSend(message, username: string, targetDomain: string, inbo
 		let d = new Date();
 		let stringToSign = `(request-target): post ${inboxFragment}\nhost: ${targetDomain}\ndate: ${d.toUTCString()}\ndigest: SHA-256=${digestHash}`;
 
-		const signer = crypto.createSign("sha256");
-		signer.update(stringToSign);
-		signer.end();
+		const signer = crypto.createSign("sha256").update(stringToSign).end();
 		const signature = signer.sign(result?.priv_key);
 		const signature_b64 = signature.toString("base64");
 
@@ -99,25 +107,20 @@ function createMessage(text: string, username: string, follower) {
 	return createMessage;
 }
 
-function sendCreateMessage(text: string, username: string, c: Context) {
+async function sendCreateMessage(text: string, username: string) {
 	let result = db.prepare("select followers from accounts where username = ?").get(username);
 
 	let followers = parseJSON(result?.followers);
 
-	if (!followers || followers.length === 0) {
-		c.status(400);
-		return c.json({ msg: `No followers for account ${toAccount(username)}` });
-	} else {
-		for (let follower of followers) {
-			let inbox = follower + "/inbox";
-			let myURL = new URL(follower);
-			let targetDomain = myURL.host;
-			let message = createMessage(text, username, follower);
-			signAndSend(message, username, targetDomain, inbox);
-		}
+	if (!followers || followers.length === 0)
+		throw new Error(`No followers for account ${toAccount(username)}`);
 
-		c.status(200);
-		return c.json({ msg: "ok" });
+	for await (let follower of followers) {
+		let inbox = follower + "/inbox";
+		let myURL = new URL(follower);
+		let targetDomain = myURL.host;
+		let message = createMessage(text, username, follower);
+		await signAndSend(message, username, targetDomain, inbox);
 	}
 }
 

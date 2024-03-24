@@ -1,14 +1,14 @@
 import { db } from "$lib/db";
+import admin from "$routes/admin";
+import api from "$routes/api";
+import dashboard from "$routes/dashboard";
+import inbox from "$routes/inbox";
+import message from "$routes/message";
+import user from "$routes/user";
+import webfinger from "$routes/webfinger";
 import { Hono } from "hono";
-import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import config from "../config.json";
-import admin from "./routes/admin";
-import api from "./routes/api";
-import inbox from "./routes/inbox";
-import message from "./routes/message";
-import user from "./routes/user";
-import webfinger from "./routes/webfinger";
 
 const { PORT } = config;
 
@@ -24,8 +24,8 @@ const app = new Hono();
 app.use("*", cors());
 
 app.get("/", (c) => c.text("Hello Bun!"));
-app.get("/admin", serveStatic({ path: "./static/admin/index.html" }));
 app.options("/api");
+app.route("/admin", dashboard);
 app.route("/api", api);
 app.route("/api/admin", admin);
 app.route("/.well-known/webfinger", webfinger);

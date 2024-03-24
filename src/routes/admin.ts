@@ -15,7 +15,8 @@ const app = new Hono();
 
 app.post("/create", async (c) => {
 	// Pass in a username for an account, if the account doesn't exist, create it!
-	const { username } = await c.req.json();
+	const formData = await c.req.formData();
+	const username = formData.get("username");
 
 	if (username === undefined) {
 		c.status(400);
