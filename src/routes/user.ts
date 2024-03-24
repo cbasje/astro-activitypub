@@ -38,7 +38,7 @@ app.get("/:username", (c) => {
 		console.log("account", account);
 		let result = db.prepare("select pubkey from accounts where name = ?").get(account);
 
-		if (result === undefined) {
+		if (!result) {
 			c.status(404);
 			return c.text(`No record found for ${account}.`);
 		} else {

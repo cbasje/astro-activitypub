@@ -18,7 +18,7 @@ app.post("/sendMessage", async (c) => {
 		sendCreateMessage(message, acct, c);
 	} else {
 		c.status(403);
-		return c.json({ msg: "wrong api key" });
+		return c.json({ msg: "Invalid API key" });
 	}
 });
 
@@ -28,7 +28,7 @@ async function signAndSend(message, username: string, targetDomain: string, inbo
 
 	let result = db.prepare("select privkey from accounts where name = ?").get(toAccount(username));
 
-	if (result === undefined) {
+	if (!result) {
 		console.log(`No record found for ${username}.`);
 	} else {
 		const digestHash = crypto
@@ -105,10 +105,8 @@ function sendCreateMessage(text: string, username: string, c: Context) {
 		.get(toAccount(username));
 
 	let followers = parseJSON(result?.followers);
-	console.log(followers);
-	console.log("type", typeof followers);
 
-	if (followers === null) {
+	if (!followers || followers.length === 0) {
 		c.status(400);
 		return c.json({ msg: `No followers for account ${toAccount(username)}` });
 	} else {

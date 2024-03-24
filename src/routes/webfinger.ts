@@ -32,7 +32,8 @@ app.get("/", (c) => {
 		);
 	} else {
 		let result = db.prepare("select name from accounts where name = ?").get(username);
-		if (result === undefined) {
+
+		if (!result) {
 			c.status(404);
 			return c.text(`No record found for ${username}.`);
 		} else {

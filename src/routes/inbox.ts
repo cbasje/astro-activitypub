@@ -16,7 +16,7 @@ async function signAndSend(message, username: string, c: Context, targetDomain: 
 
 	let result = db.prepare("select privkey from accounts where name = ?").get(toAccount(username));
 
-	if (result === undefined) {
+	if (!result) {
 		c.status(404);
 		return c.text(`No record found for ${username}.`);
 	} else {
@@ -87,7 +87,7 @@ app.post("/", async (c) => {
 			.prepare("select followers from accounts where name = ?")
 			.get(toAccount(username));
 
-		if (result === undefined) {
+		if (!result) {
 			console.log(`No record found for ${username}.`);
 		} else {
 			// update followers

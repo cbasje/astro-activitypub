@@ -13,7 +13,7 @@ app.get("/:guid", (c) => {
 	} else {
 		let result = db.prepare("select message from messages where guid = ?").get(guid);
 
-		if (result === undefined) {
+		if (!result) {
 			c.status(404);
 			return c.text(`No record found for ${guid}.`);
 		} else {
