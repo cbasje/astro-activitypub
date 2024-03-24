@@ -1,5 +1,5 @@
 import { db } from "$lib/db";
-import { parseJSON } from "$lib/utils";
+import { parseJSON, toAccount } from "$lib/utils";
 import { Context, Hono } from "hono";
 import crypto from "node:crypto";
 import config from "../../config.json";
@@ -26,9 +26,7 @@ async function signAndSend(message, username: string, targetDomain: string, inbo
 	// get the private key
 	let inboxFragment = inbox.replace("https://" + targetDomain, "");
 
-	let result = db
-		.prepare("select privkey from accounts where name = ?")
-		.get(`${username}@${DOMAIN}`);
+	let result = db.prepare("select privkey from accounts where name = ?").get(toAccount(username));
 
 	if (result === undefined) {
 		console.log(`No record found for ${username}.`);
@@ -104,7 +102,7 @@ function createMessage(text: string, username: string, follower) {
 function sendCreateMessage(text: string, username: string, c: Context) {
 	let result = db
 		.prepare("select followers from accounts where name = ?")
-		.get(`${username}@${DOMAIN}`);
+		.get(toAccount(username));
 
 	let followers = parseJSON(result?.followers);
 	console.log(followers);
@@ -112,7 +110,7 @@ function sendCreateMessage(text: string, username: string, c: Context) {
 
 	if (followers === null) {
 		c.status(400);
-		return c.json({ msg: `No followers for account ${username}@${DOMAIN}` });
+		return c.json({ msg: `No followers for account ${toAccount(username)}` });
 	} else {
 		for (let follower of followers) {
 			let inbox = follower + "/inbox";

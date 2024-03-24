@@ -2,9 +2,9 @@
 
 A very simple standalone ActivityPub server that supports:
 
-* creation of new Actors via API
-* discovery of our Actors via webfinger (so you can find these accounts from other instances)
-* notifying followers of new posts (so new posts show up in their timeline)
+-   creation of new Actors via API
+-   discovery of our Actors via webfinger (so you can find these accounts from other instances)
+-   notifying followers of new posts (so new posts show up in their timeline)
 
 _This is meant as a reference implementation!_ This code implements a very small subset of ActivityPub and is supposed to help you get your bearings when it comes to making your own barebones ActivityPub support in your own projects. (Of course you can still fork this and start building on it as well, but it's not exactly hardened production code.)
 
@@ -49,7 +49,7 @@ Enter "test" in the "Create Account" section and hit the "Create Account" button
 
 ## Local testing
 
-You can use a service like [ngrok](https://ngrok.com/) to test things out before you deploy on a real server. All you need to do is install ngrok and run `ngrok http 3000` (or whatever port you're using if you changed it). Then go to your `config.json` and update the `DOMAIN` field to whatever `abcdef.ngrok.io` domain that ngrok gives you and restart your server. *For local testing you do not need to specify `PRIVKEY_PATH` or `CERT_PARTH`.*
+You can use a service like [ngrok](https://ngrok.com/) to test things out before you deploy on a real server. All you need to do is install ngrok and run `ngrok http 3000` (or whatever port you're using if you changed it). Then go to your `config.json` and update the `DOMAIN` field to whatever `abcdef.ngrok.io` domain that ngrok gives you and restart your server. _For local testing you do not need to specify `PRIVKEY_PATH` or `CERT_PARTH`._
 
 ## Admin Page
 
@@ -75,9 +75,9 @@ Send a message to followers. This is NOT a direct message or an @-mention. This 
 
 Send a POST to `api/sendMessage` with the form fields `acct`, `apikey`, and `message`.
 
-* `acct`: the account name in the form "myAccountName" (no domain or @'s needed)
-* `apikey`: your hex API key
-* `message`: the message you want to send -- for Mastodon-compatible posts this might be plain text or simple HTML, but ActivityPub is a lot more flexible than just Mastodon! In theory, according to the [ActivityPub spec](https://www.w3.org/TR/activitypub/#create-activity-outbox) it can be any [ActivityStreams object](https://www.w3.org/TR/activitystreams-core/#object)
+-   `acct`: the account name in the form "myAccountName" (no domain or @'s needed)
+-   `apikey`: your hex API key
+-   `message`: the message you want to send -- for Mastodon-compatible posts this might be plain text or simple HTML, but ActivityPub is a lot more flexible than just Mastodon! In theory, according to the [ActivityPub spec](https://www.w3.org/TR/activitypub/#create-activity-outbox) it can be any [ActivityStreams object](https://www.w3.org/TR/activitystreams-core/#object)
 
 ## Database
 
@@ -87,23 +87,20 @@ This server uses a SQLite database to keep track of all the data. There is one t
 
 This table keeps track of all the data needed for the accounts. Columns:
 
-* `name` `TEXT PRIMARY KEY`: the account name, in the form `thename@example.com`
-* `privkey` `TEXT`: the RSA private key for the account
-* `pubkey` `TEXT`: the RSA public key for the account
-* `webfinger` `TEXT`: the entire contents of the webfinger JSON served for this account
-* `actor` `TEXT`: the entire contents of the actor JSON served for this account
-* `apikey` `TEXT`: the API key associated with this account
-* `followers` `TEXT`: a JSON-formatted array of the URL for the Actor JSON of all followers, in the form `["https://remote.server/users/somePerson", "https://another.remote.server/ourUsers/anotherPerson"]`
-* `messages` `TEXT`: not yet used but will eventually store all messages so we can render them on a "profile" page
+-   `name` `TEXT PRIMARY KEY`: the account name, in the form `thename@example.com`
+-   `privkey` `TEXT`: the RSA private key for the account
+-   `pubkey` `TEXT`: the RSA public key for the account
+-   `apikey` `TEXT`: the API key associated with this account
+-   `followers` `TEXT`: a JSON-formatted array of the URL for the Actor JSON of all followers, in the form `["https://remote.server/users/somePerson", "https://another.remote.server/ourUsers/anotherPerson"]`
+-   `messages` `TEXT`: not yet used but will eventually store all messages so we can render them on a "profile" page
 
 ### `messages`
 
 This table holds all messages sent by the server, which are served at the url `/m/some-id-number/`.
 
-* `guid` `TEXT PRIMARY KEY`: an id for the message
-* `message` `TEXT`: a JSON object encoding the full message
+-   `guid` `TEXT PRIMARY KEY`: an id for the message
+-   `message` `TEXT`: a JSON object encoding the full message
 
 ## License
 
 Copyright (c) 2018 Darius Kazemi. Licensed under the MIT license.
-

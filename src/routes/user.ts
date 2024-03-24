@@ -1,11 +1,30 @@
 import { db } from "$lib/db";
-import { parseJSON } from "$lib/utils";
+import { parseJSON, toAccount } from "$lib/utils";
 import { Hono } from "hono";
 import config from "../../config.json";
 
 const { DOMAIN } = config;
 
 const app = new Hono();
+
+function createActor(username: string, pubkey: string) {
+	return {
+		"@context": ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
+
+		id: `https://${DOMAIN}/u/${username}`,
+		type: "Person",
+		preferredUsername: `${username}`,
+		inbox: `https://${DOMAIN}/api/inbox`,
+		outbox: `https://${DOMAIN}/u/${username}/outbox`,
+		followers: `https://${DOMAIN}/u/${username}/followers`,
+
+		publicKey: {
+			id: `https://${DOMAIN}/u/${username}#main-key`,
+			owner: `https://${DOMAIN}/u/${username}`,
+			publicKeyPem: pubkey,
+		},
+	};
+}
 
 app.get("/:username", (c) => {
 	const username = c.req.param("username");
@@ -14,48 +33,43 @@ app.get("/:username", (c) => {
 		c.status(400);
 		return c.text("Bad request.");
 	} else {
-		const account = `${username}@${DOMAIN}`;
+		const account = toAccount(username);
 
-		let result = db.prepare("select actor from accounts where name = ?").get(account);
+		console.log("account", account);
+		let result = db.prepare("select pubkey from accounts where name = ?").get(account);
 
 		if (result === undefined) {
 			c.status(404);
 			return c.text(`No record found for ${account}.`);
 		} else {
-			let tempActor = parseJSON(result?.actor || "{}");
-			// Added this followers URI for Pleroma compatibility, see https://github.com/dariusk/rss-to-activitypub/issues/11#issuecomment-471390881
-			// New Actors should have this followers URI but in case of migration from an old version this will add it in on the fly
-			if (tempActor.followers === undefined) {
-				tempActor.followers = `https://${DOMAIN}/u/${username}/followers`;
-			}
-			return c.json(tempActor);
+			return c.json(createActor(username, result?.pubkey));
 		}
 	}
 });
 
-app.get("/:name/followers", (c) => {
-	const name = c.req.param("name");
+app.get("/:username/followers", (c) => {
+	const username = c.req.param("username");
 
-	if (!name) {
+	if (!username) {
 		c.status(400);
 		return c.text("Bad request.");
 	} else {
 		let result = db
 			.prepare("select followers from accounts where name = ?")
-			.get(`${name}@${DOMAIN}`);
+			.get(toAccount(username));
 		console.log(result);
 
 		let followers = parseJSON(result?.followers || "[]");
 		let followersCollection = {
 			type: "OrderedCollection",
 			totalItems: followers.length,
-			id: `https://${DOMAIN}/u/${name}/followers`,
+			id: `https://${DOMAIN}/u/${username}/followers`,
 			first: {
 				type: "OrderedCollectionPage",
 				totalItems: followers.length,
-				partOf: `https://${DOMAIN}/u/${name}/followers`,
+				partOf: `https://${DOMAIN}/u/${username}/followers`,
 				orderedItems: followers,
-				id: `https://${DOMAIN}/u/${name}/followers?page=1`,
+				id: `https://${DOMAIN}/u/${username}/followers?page=1`,
 			},
 			"@context": ["https://www.w3.org/ns/activitystreams"],
 		};
@@ -63,10 +77,10 @@ app.get("/:name/followers", (c) => {
 	}
 });
 
-app.get("/:name/outbox", (c) => {
-	const name = c.req.param("name");
+app.get("/:username/outbox", (c) => {
+	const username = c.req.param("username");
 
-	if (!name) {
+	if (!username) {
 		c.status(400);
 		return c.text("Bad request.");
 	} else {
@@ -75,13 +89,13 @@ app.get("/:name/outbox", (c) => {
 		let outboxCollection = {
 			type: "OrderedCollection",
 			totalItems: messages.length,
-			id: `https://${DOMAIN}/u/${name}/outbox`,
+			id: `https://${DOMAIN}/u/${username}/outbox`,
 			first: {
 				type: "OrderedCollectionPage",
 				totalItems: messages.length,
-				partOf: `https://${DOMAIN}/u/${name}/outbox`,
+				partOf: `https://${DOMAIN}/u/${username}/outbox`,
 				orderedItems: messages,
-				id: `https://${DOMAIN}/u/${name}/outbox?page=1`,
+				id: `https://${DOMAIN}/u/${username}/outbox?page=1`,
 			},
 			"@context": ["https://www.w3.org/ns/activitystreams"],
 		};

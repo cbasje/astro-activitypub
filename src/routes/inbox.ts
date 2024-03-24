@@ -1,5 +1,5 @@
 import { db } from "$lib/db";
-import { parseJSON } from "$lib/utils";
+import { parseJSON, toAccount } from "$lib/utils";
 import { Context, Hono } from "hono";
 import crypto from "node:crypto";
 import config from "../../config.json";
@@ -14,9 +14,7 @@ async function signAndSend(message, username: string, c: Context, targetDomain: 
 	let inboxFragment = inbox.replace("https://" + targetDomain, "");
 	// get the private key
 
-	let result = db
-		.prepare("select privkey from accounts where name = ?")
-		.get(`${username}@${DOMAIN}`);
+	let result = db.prepare("select privkey from accounts where name = ?").get(toAccount(username));
 
 	if (result === undefined) {
 		c.status(404);
@@ -87,7 +85,7 @@ app.post("/", async (c) => {
 		// get the followers JSON for the user
 		let result = db
 			.prepare("select followers from accounts where name = ?")
-			.get(`${username}@${DOMAIN}`);
+			.get(toAccount(username));
 
 		if (result === undefined) {
 			console.log(`No record found for ${username}.`);
@@ -108,7 +106,7 @@ app.post("/", async (c) => {
 				// update into DB
 				let newFollowers = db
 					.prepare("update accounts set followers=? where name = ?")
-					.run(followersText, `${username}@${DOMAIN}`);
+					.run(followersText, toAccount(username));
 				console.log("updated followers!", newFollowers);
 			} catch (e) {
 				console.log("error", e);

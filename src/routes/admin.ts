@@ -3,6 +3,7 @@ import { basicAuth } from "hono/basic-auth";
 import crypto from "node:crypto";
 import config from "../../config.json";
 import { db } from "$lib/db";
+import { toAccount } from "$lib/utils";
 
 const { DOMAIN } = config;
 
@@ -16,47 +17,14 @@ const app = new Hono();
 // 	})
 // );
 
-function createActor(name: string, pubkey: string) {
-	return {
-		"@context": ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
-
-		id: `https://${DOMAIN}/u/${name}`,
-		type: "Person",
-		preferredUsername: `${name}`,
-		inbox: `https://${DOMAIN}/api/inbox`,
-		outbox: `https://${DOMAIN}/u/${name}/outbox`,
-		followers: `https://${DOMAIN}/u/${name}/followers`,
-
-		publicKey: {
-			id: `https://${DOMAIN}/u/${name}#main-key`,
-			owner: `https://${DOMAIN}/u/${name}`,
-			publicKeyPem: pubkey,
-		},
-	};
-}
-
-function createWebfinger(name: string) {
-	return {
-		subject: `acct:${name}@${DOMAIN}`,
-
-		links: [
-			{
-				rel: "self",
-				type: "application/activity+json",
-				href: `https://${DOMAIN}/u/${name}`,
-			},
-		],
-	};
-}
-
 app.post("/create", async (c) => {
 	// pass in a name for an account, if the account doesn't exist, create it!
-	const { account } = await c.req.json();
+	const { username } = await c.req.json();
 
-	if (account === undefined) {
+	if (username === undefined) {
 		c.status(400);
 		return c.json({
-			msg: 'Bad request. Please make sure "account" is a property in the POST body.',
+			msg: 'Bad request. Please make sure "username" is a property in the POST body.',
 		});
 	}
 
@@ -85,21 +53,12 @@ app.post("/create", async (c) => {
 		}
 	);
 
-	let actorRecord = createActor(account, publicKey);
-	let webfingerRecord = createWebfinger(account);
 	const apikey = crypto.randomBytes(16).toString("hex");
 
 	try {
 		db.prepare(
-			"insert or replace into accounts(name, actor, apikey, pubkey, privkey, webfinger) values(?, ?, ?, ?, ?, ?)"
-		).run(
-			`${account}@${DOMAIN}`,
-			JSON.stringify(actorRecord),
-			apikey,
-			publicKey,
-			privateKey,
-			JSON.stringify(webfingerRecord)
-		);
+			"insert or replace into accounts(name, apikey, pubkey, privkey) values(?, ?, ?, ?)"
+		).run(toAccount(username), apikey, publicKey, privateKey);
 
 		c.status(200);
 		return c.json({ msg: "ok", apikey });
