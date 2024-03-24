@@ -14,13 +14,13 @@ async function signAndSend(message, username: string, c: Context, targetDomain: 
 	let inboxFragment = inbox.replace("https://" + targetDomain, "");
 	// get the private key
 
-	let result = db.prepare("select privkey from accounts where name = ?").get(toAccount(username));
+	let result = db.prepare("select priv_key from accounts where username = ?").get(username);
 
 	if (!result) {
 		c.status(404);
 		return c.text(`No record found for ${username}.`);
 	} else {
-		let privkey = result?.privkey;
+		let privKey = result?.priv_key;
 		const digestHash = crypto
 			.createHash("sha256")
 			.update(JSON.stringify(message))
@@ -32,7 +32,7 @@ async function signAndSend(message, username: string, c: Context, targetDomain: 
 		let stringToSign = `(request-target): post ${inboxFragment}\nhost: ${targetDomain}\ndate: ${d.toUTCString()}\ndigest: SHA-256=${digestHash}`;
 		signer.update(stringToSign);
 		signer.end();
-		const signature = signer.sign(privkey);
+		const signature = signer.sign(privKey);
 		const signature_b64 = signature.toString("base64");
 
 		let header = `keyId="https://${DOMAIN}/u/${username}",headers="(request-target) host date digest",signature="${signature_b64}"`;
@@ -84,7 +84,7 @@ app.post("/", async (c) => {
 		// Add the user to the DB of accounts that follow the account
 		// get the followers JSON for the user
 		let result = db
-			.prepare("select followers from accounts where name = ?")
+			.prepare("select followers from accounts where username = ?")
 			.get(toAccount(username));
 
 		if (!result) {
@@ -105,8 +105,8 @@ app.post("/", async (c) => {
 			try {
 				// update into DB
 				let newFollowers = db
-					.prepare("update accounts set followers=? where name = ?")
-					.run(followersText, toAccount(username));
+					.prepare("update accounts set followers=? where username = ?")
+					.run(followersText, username);
 				console.log("updated followers!", newFollowers);
 			} catch (e) {
 				console.log("error", e);

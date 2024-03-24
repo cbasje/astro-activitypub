@@ -9,13 +9,13 @@ const { DOMAIN } = config;
 const app = new Hono();
 
 app.post("/sendMessage", async (c) => {
-	const { acct, apikey, message } = await c.req.json();
+	const { username, apiKey, message } = await c.req.json();
 
 	// check to see if your API key matches
-	let result = db.prepare("select apikey from accounts where name = ?").get(`${acct}@${DOMAIN}`);
+	let result = db.prepare("select api_key from accounts where username = ?").get(username);
 
-	if (result?.apikey === apikey) {
-		sendCreateMessage(message, acct, c);
+	if (result?.api_key === apiKey) {
+		sendCreateMessage(message, username, c);
 	} else {
 		c.status(403);
 		return c.json({ msg: "Invalid API key" });
@@ -26,7 +26,7 @@ async function signAndSend(message, username: string, targetDomain: string, inbo
 	// get the private key
 	let inboxFragment = inbox.replace("https://" + targetDomain, "");
 
-	let result = db.prepare("select privkey from accounts where name = ?").get(toAccount(username));
+	let result = db.prepare("select priv_key from accounts where username = ?").get(username);
 
 	if (!result) {
 		console.log(`No record found for ${username}.`);
@@ -42,7 +42,7 @@ async function signAndSend(message, username: string, targetDomain: string, inbo
 		const signer = crypto.createSign("sha256");
 		signer.update(stringToSign);
 		signer.end();
-		const signature = signer.sign(result?.privkey);
+		const signature = signer.sign(result?.priv_key);
 		const signature_b64 = signature.toString("base64");
 
 		let header = `keyId="https://${DOMAIN}/u/${username}",headers="(request-target) host date digest",signature="${signature_b64}"`;
@@ -100,9 +100,7 @@ function createMessage(text: string, username: string, follower) {
 }
 
 function sendCreateMessage(text: string, username: string, c: Context) {
-	let result = db
-		.prepare("select followers from accounts where name = ?")
-		.get(toAccount(username));
+	let result = db.prepare("select followers from accounts where username = ?").get(username);
 
 	let followers = parseJSON(result?.followers);
 

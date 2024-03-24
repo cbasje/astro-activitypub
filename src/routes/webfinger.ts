@@ -7,15 +7,15 @@ const { DOMAIN } = config;
 
 const app = new Hono();
 
-function createWebfinger(name: string) {
+function createWebfinger(username: string) {
 	return {
-		subject: `acct:${toAccount(name)}`,
+		subject: `acct:${toAccount(username)}`,
 
 		links: [
 			{
 				rel: "self",
 				type: "application/activity+json",
-				href: `https://${DOMAIN}/u/${name}`,
+				href: `https://${DOMAIN}/u/${username}`,
 			},
 		],
 	};
@@ -31,7 +31,7 @@ app.get("/", (c) => {
 			'Bad request. Please make sure "acct:USER@DOMAIN" is what you are sending as the "resource" query parameter.'
 		);
 	} else {
-		let result = db.prepare("select name from accounts where name = ?").get(username);
+		let result = db.prepare("select username from accounts where username = ?").get(username);
 
 		if (!result) {
 			c.status(404);

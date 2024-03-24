@@ -1,11 +1,7 @@
 import { Hono } from "hono";
 import { basicAuth } from "hono/basic-auth";
 import crypto from "node:crypto";
-import config from "../../config.json";
 import { db } from "$lib/db";
-import { toAccount } from "$lib/utils";
-
-const { DOMAIN } = config;
 
 const app = new Hono();
 
@@ -18,7 +14,7 @@ const app = new Hono();
 // );
 
 app.post("/create", async (c) => {
-	// pass in a name for an account, if the account doesn't exist, create it!
+	// Pass in a username for an account, if the account doesn't exist, create it!
 	const { username } = await c.req.json();
 
 	if (username === undefined) {
@@ -53,15 +49,15 @@ app.post("/create", async (c) => {
 		}
 	);
 
-	const apikey = crypto.randomBytes(16).toString("hex");
+	const apiKey = crypto.randomBytes(16).toString("hex");
 
 	try {
 		db.prepare(
-			"insert or replace into accounts(name, apikey, pubkey, privkey) values(?, ?, ?, ?)"
-		).run(toAccount(username), apikey, publicKey, privateKey);
+			"insert or replace into accounts(username, api_key, pub_key, priv_key) values(?, ?, ?, ?)"
+		).run(username, apiKey, publicKey, privateKey);
 
 		c.status(200);
-		return c.json({ msg: "ok", apikey });
+		return c.json({ msg: "ok", apiKey });
 	} catch (e) {
 		c.status(200);
 		return c.json({ error: e });

@@ -67,16 +67,16 @@ Send a POST to `/api/admin/create` using basic HTTP auth with the admin username
 curl -u adminUsername:adminPassword -d "account=test" -H "Content-Type: application/x-www-form-urlencoded" -X POST http://example.com/api/admin/create
 ```
 
-This will return a 200 status and `{msg: "ok", apikey: "yourapikey"}` if all goes well.
+This will return a 200 status and `{msg: "ok", apiKey: "yourapikey"}` if all goes well.
 
 ### Send Message to Followers
 
 Send a message to followers. This is NOT a direct message or an @-mention. This simply means that the message you post via this endpoint will appear in the timelines (AKA inboxes) of every one of the account's followers.
 
-Send a POST to `api/sendMessage` with the form fields `acct`, `apikey`, and `message`.
+Send a POST to `api/sendMessage` with the form fields `username`, `apiKey`, and `message`.
 
--   `acct`: the account name in the form "myAccountName" (no domain or @'s needed)
--   `apikey`: your hex API key
+-   `username`: the username, without the domain
+-   `apiKey`: your hex API key
 -   `message`: the message you want to send -- for Mastodon-compatible posts this might be plain text or simple HTML, but ActivityPub is a lot more flexible than just Mastodon! In theory, according to the [ActivityPub spec](https://www.w3.org/TR/activitypub/#create-activity-outbox) it can be any [ActivityStreams object](https://www.w3.org/TR/activitystreams-core/#object)
 
 ## Database
@@ -87,10 +87,10 @@ This server uses a SQLite database to keep track of all the data. There is one t
 
 This table keeps track of all the data needed for the accounts. Columns:
 
--   `name` `TEXT PRIMARY KEY`: the account name, in the form `thename@example.com`
--   `privkey` `TEXT`: the RSA private key for the account
--   `pubkey` `TEXT`: the RSA public key for the account
--   `apikey` `TEXT`: the API key associated with this account
+-   `username` `TEXT PRIMARY KEY`: the username, without the domain
+-   `priv_key` `TEXT`: the RSA private key for the account
+-   `pub_key` `TEXT`: the RSA public key for the account
+-   `api_key` `TEXT`: the API key associated with this account
 -   `followers` `TEXT`: a JSON-formatted array of the URL for the Actor JSON of all followers, in the form `["https://remote.server/users/somePerson", "https://another.remote.server/ourUsers/anotherPerson"]`
 -   `messages` `TEXT`: not yet used but will eventually store all messages so we can render them on a "profile" page
 

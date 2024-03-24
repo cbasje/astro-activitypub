@@ -7,7 +7,7 @@ const { DOMAIN } = config;
 
 const app = new Hono();
 
-function createActor(username: string, pubkey: string) {
+function createActor(username: string, pubKey: string) {
 	return {
 		"@context": ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
 
@@ -21,7 +21,7 @@ function createActor(username: string, pubkey: string) {
 		publicKey: {
 			id: `https://${DOMAIN}/u/${username}#main-key`,
 			owner: `https://${DOMAIN}/u/${username}`,
-			publicKeyPem: pubkey,
+			publicKeyPem: pubKey,
 		},
 	};
 }
@@ -33,16 +33,13 @@ app.get("/:username", (c) => {
 		c.status(400);
 		return c.text("Bad request.");
 	} else {
-		const account = toAccount(username);
-
-		console.log("account", account);
-		let result = db.prepare("select pubkey from accounts where name = ?").get(account);
+		let result = db.prepare("select pub_key from accounts where username = ?").get(username);
 
 		if (!result) {
 			c.status(404);
-			return c.text(`No record found for ${account}.`);
+			return c.text(`No record found for ${toAccount(username)}.`);
 		} else {
-			return c.json(createActor(username, result?.pubkey));
+			return c.json(createActor(username, result?.pub_key));
 		}
 	}
 });
@@ -54,9 +51,7 @@ app.get("/:username/followers", (c) => {
 		c.status(400);
 		return c.text("Bad request.");
 	} else {
-		let result = db
-			.prepare("select followers from accounts where name = ?")
-			.get(toAccount(username));
+		let result = db.prepare("select followers from accounts where username = ?").get(username);
 		console.log(result);
 
 		let followers = parseJSON(result?.followers || "[]");
