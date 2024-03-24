@@ -1,5 +1,5 @@
 import { db } from "$lib/db";
-import { parseJSON, toAccount } from "$lib/utils";
+import { parseJSON } from "$lib/utils";
 import { Context, Hono } from "hono";
 import crypto from "node:crypto";
 import config from "../../config.json";
@@ -8,52 +8,41 @@ const { DOMAIN } = config;
 
 const app = new Hono();
 
-async function signAndSend(message, username: string, c: Context, targetDomain: string) {
+async function signAndSend(message, username: string, privKey: string, targetDomain: string) {
 	// get the URI of the actor object and append 'inbox' to it
 	let inbox = message.object.actor + "/inbox";
 	let inboxFragment = inbox.replace("https://" + targetDomain, "");
 	// get the private key
 
-	let result = db.prepare("select priv_key from accounts where username = ?").get(username);
+	const digestHash = crypto.createHash("sha256").update(JSON.stringify(message)).digest("base64");
 
-	if (!result) {
-		c.status(404);
-		return c.text(`No record found for ${username}.`);
-	} else {
-		let privKey = result?.priv_key;
-		const digestHash = crypto
-			.createHash("sha256")
-			.update(JSON.stringify(message))
-			.digest("base64");
+	const signer = crypto.createSign("sha256");
+	let d = new Date();
 
-		const signer = crypto.createSign("sha256");
-		let d = new Date();
+	let stringToSign = `(request-target): post ${inboxFragment}\nhost: ${targetDomain}\ndate: ${d.toUTCString()}\ndigest: SHA-256=${digestHash}`;
+	signer.update(stringToSign);
+	signer.end();
+	const signature = signer.sign(privKey);
+	const signature_b64 = signature.toString("base64");
 
-		let stringToSign = `(request-target): post ${inboxFragment}\nhost: ${targetDomain}\ndate: ${d.toUTCString()}\ndigest: SHA-256=${digestHash}`;
-		signer.update(stringToSign);
-		signer.end();
-		const signature = signer.sign(privKey);
-		const signature_b64 = signature.toString("base64");
+	let header = `keyId="https://${DOMAIN}/u/${username}",headers="(request-target) host date digest",signature="${signature_b64}"`;
 
-		let header = `keyId="https://${DOMAIN}/u/${username}",headers="(request-target) host date digest",signature="${signature_b64}"`;
-
-		await fetch(inbox, {
-			headers: {
-				Host: targetDomain,
-				Date: d.toUTCString(),
-				Digest: `SHA-256=${digestHash}`,
-				Signature: header,
-			},
-			method: "POST",
-			body: JSON.stringify(message),
-		});
-	}
+	await fetch(inbox, {
+		headers: {
+			Host: targetDomain,
+			Date: d.toUTCString(),
+			Digest: `SHA-256=${digestHash}`,
+			Signature: header,
+		},
+		method: "POST",
+		body: JSON.stringify(message),
+	});
 }
 
-function sendAcceptMessage(
+async function sendAcceptMessage(
 	body: Record<string, any>,
 	username: string,
-	c: Context,
+	privKey: string,
 	targetDomain: string
 ) {
 	const guid = crypto.randomBytes(16).toString("hex");
@@ -65,7 +54,8 @@ function sendAcceptMessage(
 		actor: `https://${DOMAIN}/u/${username}`,
 		object: body,
 	};
-	signAndSend(message, username, c, targetDomain);
+
+	await signAndSend(message, username, privKey, targetDomain);
 }
 
 app.post("/", async (c) => {
@@ -73,23 +63,27 @@ app.post("/", async (c) => {
 	const body = await c.req.json();
 	const { actor, object, type } = body;
 
+	console.log("body", body);
+
 	const myURL = new URL(actor);
 	let targetDomain = myURL.hostname;
 
 	// TODO: add "Undo" follow event
 	if (typeof object === "string" && type === "Follow") {
 		let username = object.replace(`https://${DOMAIN}/u/`, "");
-		sendAcceptMessage(body, username, c, targetDomain);
 
 		// Add the user to the DB of accounts that follow the account
 		// get the followers JSON for the user
 		let result = db
-			.prepare("select followers from accounts where username = ?")
-			.get(toAccount(username));
+			.prepare("select priv_key, followers from accounts where username = ?")
+			.get(username);
 
 		if (!result) {
-			console.log(`No record found for ${username}.`);
+			c.status(404);
+			return c.text(`No record found for ${username}.`);
 		} else {
+			await sendAcceptMessage(body, username, result?.priv_key, targetDomain);
+
 			// update followers
 			let followers = parseJSON(result?.followers || "[]");
 
@@ -102,15 +96,14 @@ app.post("/", async (c) => {
 			}
 
 			let followersText = JSON.stringify(followers);
-			try {
-				// update into DB
-				let newFollowers = db
-					.prepare("update accounts set followers=? where username = ?")
-					.run(followersText, username);
-				console.log("updated followers!", newFollowers);
-			} catch (e) {
-				console.log("error", e);
-			}
+
+			// Update into DB
+			db.prepare("update accounts set followers=? where username = ?").run(
+				followersText,
+				username
+			);
+
+			return c.text("Updated followers!");
 		}
 	}
 });
