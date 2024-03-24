@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"types": ["bun-types"],
+		"baseUrl": ".",
+		"paths": {
+			"$routes/*": ["src/routes/*"],
+			"$lib/*": ["src/lib/*"]
+		},
+		"strict": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "hono/jsx",
+		"moduleResolution": "bundler"
+	}
+}
