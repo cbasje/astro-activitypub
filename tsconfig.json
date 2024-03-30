@@ -1,14 +1,17 @@
 {
+	"extends": "astro/tsconfigs/strict",
 	"compilerOptions": {
 		"types": ["bun-types"],
 		"baseUrl": ".",
 		"paths": {
-			"$routes/*": ["src/routes/*"],
+			"$components/*": ["src/components/*"],
+			"$layouts/*": ["src/layouts/*"],
+			"$pages/*": ["src/pages/*"],
+			"$db/*": ["src/db/*"],
 			"$lib/*": ["src/lib/*"]
 		},
-		"strict": true,
-		"jsx": "react-jsx",
-		"jsxImportSource": "hono/jsx",
-		"moduleResolution": "bundler"
-	}
+		"experimentalDecorators": true,
+		"useDefineForClassFields": false
+	},
+	"exclude": ["node_modules", "dist", "functions"]
 }

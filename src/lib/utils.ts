@@ -34,17 +34,3 @@ export const toFullMention = (username: string) => {
 	if (username.includes("@")) return username;
 	else return `${username}@${DOMAIN}`;
 };
-
-export const activityJson = (json: string | unknown) => {
-	let body: string;
-
-	if (typeof json === "string") body = JSON.stringify(parseJSON(json));
-	else body = JSON.stringify(json);
-
-	return new Response(body, {
-		status: 200,
-		headers: {
-			"Content-Type": "application/activity+json; charset=utf-8",
-		},
-	});
-};

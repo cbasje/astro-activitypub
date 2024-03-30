@@ -1,54 +1,10 @@
 import { getHttpSignature, randomBytes } from "$lib/crypto";
-import { db } from "$lib/db";
-import { accounts, messages } from "$lib/schema";
-import { Account } from "$lib/types";
+import { json } from "$lib/response";
+import type { Account } from "$lib/types";
 import { toFullMention } from "$lib/utils";
 import * as AP from "@activity-kit/types";
-import { and, eq } from "drizzle-orm";
-import { Hono } from "hono";
-import config from "../../config.json";
-
-const { DOMAIN } = config;
-
-const app = new Hono();
-
-app.post("/sendMessage", async (c) => {
-	const formData = await c.req.formData();
-	const username = formData.get("username");
-	const apiKey = formData.get("apiKey");
-	const message = formData.get("message");
-
-	if (!username || !apiKey || !message) {
-		c.status(400);
-		return c.json({ msg: "Bad request." });
-	}
-
-	// check to see if your API key matches
-	const [result] = await db
-		.select()
-		.from(accounts)
-		.where(
-			and(
-				eq(accounts.username, username?.toString()),
-				eq(accounts.apiKey, apiKey?.toString())
-			)
-		)
-		.limit(1);
-
-	if (result) {
-		try {
-			await sendCreateMessage(message.toString(), result);
-
-			return c.json({ msg: "ok" });
-		} catch (e) {
-			c.status(400);
-			return c.json({ msg: e.message });
-		}
-	} else {
-		c.status(403);
-		return c.json({ msg: "Invalid API key" });
-	}
-});
+import type { APIRoute } from "astro";
+import { accounts, and, db, eq, messages } from "astro:db";
 
 async function signAndSend(message: AP.Entity, account: Account, targetDomain: URL, inbox: string) {
 	const { dateHeader, digestHeader, signatureHeader } = await getHttpSignature(
@@ -123,4 +79,35 @@ async function sendCreateMessage(text: string, account: Account) {
 	}
 }
 
-export default app;
+export const POST: APIRoute = async ({ request }) => {
+	const formData = await request.formData();
+	const username = formData.get("username");
+	const apiKey = formData.get("apiKey");
+	const message = formData.get("message");
+
+	if (!username || !apiKey || !message) {
+		return json({ msg: "Bad request." }, 400);
+	}
+
+	// check to see if your API key matches
+	const [result] = await db
+		.select()
+		.from(accounts)
+		.where(
+			and(
+				eq(accounts.username, username?.toString()),
+				eq(accounts.apiKey, apiKey?.toString())
+			)
+		)
+		.limit(1);
+
+	if (!result) return json({ msg: "Invalid API key" }, 400);
+
+	try {
+		await sendCreateMessage(message.toString(), result);
+
+		return json({ msg: "ok" });
+	} catch (e) {
+		return json({ msg: e.message }, 400);
+	}
+};

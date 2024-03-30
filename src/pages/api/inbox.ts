@@ -1,15 +1,9 @@
 import { getHttpSignature, randomBytes } from "$lib/crypto";
-import { db } from "$lib/db";
-import { accounts } from "$lib/schema";
+import { text } from "$lib/response";
 import { toUsername } from "$lib/utils";
 import * as AP from "@activity-kit/types";
-import { eq } from "drizzle-orm";
-import { Hono } from "hono";
-import config from "../../config.json";
-
-const { DOMAIN } = config;
-
-const app = new Hono();
+import type { APIRoute } from "astro";
+import { accounts, db, eq } from "astro:db";
 
 async function signAndSend(
 	message: AP.Accept,
@@ -57,9 +51,8 @@ async function sendAcceptMessage(
 	await signAndSend(message, username, privKey, targetDomain);
 }
 
-app.post("/", async (c) => {
-	// pass in a name for an account, if the account doesn't exist, create it!
-	const body = await c.req.json<AP.Follow>();
+export const POST: APIRoute = async ({ request }) => {
+	const body = (await request.json()) as AP.Follow;
 	const { actor, object, type } = body;
 
 	console.log("body", body);
@@ -67,7 +60,7 @@ app.post("/", async (c) => {
 	const targetDomain = new URL(actor);
 
 	// TODO: add "Undo" follow event
-	if (typeof object === "string" && type === "Follow") {
+	if (type === "Follow") {
 		const { username } = toUsername(object);
 
 		const [result] = await db
@@ -79,29 +72,26 @@ app.post("/", async (c) => {
 			.where(eq(accounts.username, username ?? ""))
 			.limit(1);
 
-		if (!result) {
-			c.status(404);
-			return c.text(`No record found for ${username}.`);
+		if (!result) return text(`No record found for ${username}.`, 404);
+
+		await sendAcceptMessage(body, username!, result.privKey, targetDomain);
+
+		// update followers
+		let followers = result.followers;
+
+		if (followers) {
+			followers.push(actor);
+			// unique items
+			followers = [...new Set(followers)];
 		} else {
-			await sendAcceptMessage(body, username!, result.privKey, targetDomain);
-
-			// update followers
-			let followers = result.followers;
-
-			if (followers) {
-				followers.push(actor);
-				// unique items
-				followers = [...new Set(followers)];
-			} else {
-				followers = [actor];
-			}
-
-			// Update into DB
-			db.update(accounts).set({ followers }).where(eq(accounts.username, username!));
-
-			return c.text("Updated followers!");
+			followers = [actor];
 		}
-	}
-});
 
-export default app;
+		// Update into DB
+		await db.update(accounts).set({ followers }).where(eq(accounts.username, username!));
+
+		return text("Updated followers!");
+	} else {
+		return text("Not supported yet!", 405);
+	}
+};
