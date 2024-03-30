@@ -1,5 +1,5 @@
 import { APIRoute } from "astro";
-import { toUsername, toFullMention } from "$lib/utils";
+import { toUsername, toFullMention, userEndpoint } from "$lib/utils";
 import { activityJson, text } from "$lib/response";
 import { db, accounts, eq } from "astro:db";
 
@@ -11,21 +11,21 @@ const createWebfinger = (username: string) => {
 			{
 				rel: "http://webfinger.net/rel/profile-page",
 				type: "text/html",
-				href: `https://${DOMAIN}/u/${username}`,
+				href: userEndpoint(username),
 			},
 			{
 				rel: "self",
 				type: "application/activity+json",
-				href: `https://${DOMAIN}/u/${username}`,
+				href: userEndpoint(username),
 			},
 		],
 	};
 };
 
-export const GET: APIRoute = async ({ request }) => {
-	const url = new URL(request.url);
+export const GET: APIRoute = async ({ url }) => {
 	const resource = url.searchParams.get("resource");
 	const { username } = toUsername(resource ?? "");
+	console.log(resource, username);
 
 	if (!resource || !resource.includes("acct:") || !username)
 		return text(

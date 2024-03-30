@@ -8,12 +8,15 @@ const accounts = defineTable({
 		pubKey: column.text(),
 		apiKey: column.text(),
 		followers: column.json({ optional: true }),
-		messages: column.text({ optional: true }),
 	},
 });
 
 const messages = defineTable({
-	columns: { guid: column.text({ primaryKey: true }), message: column.json() },
+	columns: {
+		guid: column.text({ primaryKey: true }),
+		message: column.json(),
+		account: column.text({ references: () => accounts.columns.username }),
+	},
 });
 
 // https://astro.build/db/config

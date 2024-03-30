@@ -1,7 +1,3 @@
-import config from "../../config.json";
-
-const { DOMAIN } = config;
-
 export const parseJSON = (text: string) => {
 	try {
 		return JSON.parse(text);
@@ -10,10 +6,10 @@ export const parseJSON = (text: string) => {
 	}
 };
 
-const accountRegex = /^(?:acct:)?(?<username>\w+)@?(?<domain>[A-z0-9\-\.]+)?$/g;
+const accountRegex = /^(?:acct:)?@?(?<username>\w+)@?(?<domain>[A-z0-9\-\.]+)?$/g;
 export const toUsername = (input: string) => {
 	if (input.startsWith("https://"))
-		return { username: input.replace(`https://${DOMAIN}/u/`, ""), domain: undefined };
+		return { username: new URL(input).pathname, domain: undefined };
 
 	const matches = accountRegex.exec(input);
 
@@ -32,5 +28,8 @@ export const toUsername = (input: string) => {
 
 export const toFullMention = (username: string) => {
 	if (username.includes("@")) return username;
-	else return `${username}@${DOMAIN}`;
+	else return `${username}@${new URL(import.meta.env.SITE).hostname}`;
 };
+
+export const messageEndpoint = (guid: string) => new URL(`/m/${guid}`, import.meta.env.SITE);
+export const userEndpoint = (username: string) => new URL(`/u/${username}`, import.meta.env.SITE);

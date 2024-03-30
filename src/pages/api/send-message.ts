@@ -1,7 +1,7 @@
 import { getHttpSignature, randomBytes } from "$lib/crypto";
 import { json } from "$lib/response";
 import type { Account } from "$lib/types";
-import { toFullMention } from "$lib/utils";
+import { messageEndpoint, toFullMention, userEndpoint } from "$lib/utils";
 import * as AP from "@activity-kit/types";
 import type { APIRoute } from "astro";
 import { accounts, and, db, eq, messages } from "astro:db";
@@ -9,7 +9,7 @@ import { accounts, and, db, eq, messages } from "astro:db";
 async function signAndSend(message: AP.Entity, account: Account, targetDomain: URL, inbox: string) {
 	const { dateHeader, digestHeader, signatureHeader } = await getHttpSignature(
 		targetDomain,
-		new URL(`https://${DOMAIN}/u/${account.username}`),
+		userEndpoint(account.username),
 		account.privKey,
 		message
 	);
@@ -18,7 +18,7 @@ async function signAndSend(message: AP.Entity, account: Account, targetDomain: U
 		headers: {
 			Host: targetDomain.toString(),
 			Date: dateHeader,
-			Digest: digestHeader,
+			Digest: digestHeader!,
 			Signature: signatureHeader,
 		},
 		method: "POST",
@@ -26,17 +26,17 @@ async function signAndSend(message: AP.Entity, account: Account, targetDomain: U
 	});
 }
 
-async function createMessage(text: string, username: string, follower: string) {
+async function createMessage(text: string, username: string, follower: AP.EntityReference) {
 	const guidCreate: string = await randomBytes(16);
 	const guidNote: string = await randomBytes(16);
 
 	let d = new Date();
 
 	let noteMessage = {
-		id: new URL(`https://${DOMAIN}/m/${guidNote}`),
+		id: messageEndpoint(guidNote),
 		type: "Note",
 		published: d.toISOString(),
-		attributedTo: `https://${DOMAIN}/u/${username}`,
+		attributedTo: userEndpoint(username),
 		content: text,
 		to: ["https://www.w3.org/ns/activitystreams#Public"],
 	} satisfies AP.Note;
@@ -44,9 +44,9 @@ async function createMessage(text: string, username: string, follower: string) {
 	let createMessage = {
 		"@context": "https://www.w3.org/ns/activitystreams",
 
-		id: `https://${DOMAIN}/m/${guidCreate}`,
+		id: messageEndpoint(guidCreate),
 		type: "Create",
-		actor: `https://${DOMAIN}/u/${username}`,
+		actor: userEndpoint(username),
 		to: ["https://www.w3.org/ns/activitystreams#Public"],
 		cc: [follower],
 

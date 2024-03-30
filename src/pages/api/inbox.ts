@@ -1,6 +1,6 @@
 import { getHttpSignature, randomBytes } from "$lib/crypto";
 import { text } from "$lib/response";
-import { toUsername } from "$lib/utils";
+import { toUsername, userEndpoint } from "$lib/utils";
 import * as AP from "@activity-kit/types";
 import type { APIRoute } from "astro";
 import { accounts, db, eq } from "astro:db";
@@ -15,7 +15,7 @@ async function signAndSend(
 
 	const { dateHeader, digestHeader, signatureHeader } = await getHttpSignature(
 		targetDomain,
-		new URL(`https://${DOMAIN}/u/${username}`),
+		userEndpoint(username),
 		privKey,
 		message
 	);
@@ -24,7 +24,7 @@ async function signAndSend(
 		headers: {
 			Host: targetDomain.toString(),
 			Date: dateHeader,
-			Digest: digestHeader,
+			Digest: digestHeader!,
 			Signature: signatureHeader,
 		},
 		method: "POST",
@@ -42,9 +42,9 @@ async function sendAcceptMessage(
 
 	let message = {
 		"@context": "https://www.w3.org/ns/activitystreams",
-		id: `https://${DOMAIN}/${guid}`,
+		id: new URL(guid, import.meta.env.SITE),
 		type: "Accept",
-		actor: `https://${DOMAIN}/u/${username}`,
+		actor: userEndpoint(username),
 		object: body,
 	} satisfies AP.Accept;
 
