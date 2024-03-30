@@ -1,5 +1,5 @@
 import { db } from "$lib/db";
-import { parseJSON } from "$lib/utils";
+import { activityJson } from "$lib/utils";
 import { Hono } from "hono";
 
 const app = new Hono();
@@ -17,7 +17,7 @@ app.get("/:guid", (c) => {
 			c.status(404);
 			return c.text(`No record found for ${guid}.`);
 		} else {
-			return c.json(parseJSON(result?.message));
+			return activityJson(result?.message);
 		}
 	}
 });

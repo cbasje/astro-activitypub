@@ -1,5 +1,5 @@
 import { db } from "$lib/db";
-import { toAccount, toUsername } from "$lib/utils";
+import { activityJson, toAccount, toUsername } from "$lib/utils";
 import { Hono } from "hono";
 import config from "../../config.json";
 
@@ -37,7 +37,7 @@ app.get("/", (c) => {
 			c.status(404);
 			return c.text(`No record found for ${username}.`);
 		} else {
-			return c.json(createWebfinger(username));
+			return activityJson(createWebfinger(username));
 		}
 	}
 });

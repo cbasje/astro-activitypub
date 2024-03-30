@@ -1,5 +1,5 @@
 import { db } from "$lib/db";
-import { parseJSON, toAccount } from "$lib/utils";
+import { activityJson, parseJSON, toAccount } from "$lib/utils";
 import { Hono } from "hono";
 import config from "../../config.json";
 
@@ -38,9 +38,15 @@ app.get("/:username", (c) => {
 		if (!result) {
 			c.status(404);
 			return c.text(`No record found for ${toAccount(username)}.`);
-		} else {
-			return c.json(createActor(username, result?.pub_key));
 		}
+
+		const showJson = c.req.header("Accept")?.startsWith("application/");
+
+		if (!showJson) {
+			return c.html("Hello <b>HTML</b>!");
+		}
+
+		return activityJson(createActor(username, result?.pub_key));
 	}
 });
 
@@ -68,7 +74,7 @@ app.get("/:username/followers", (c) => {
 			},
 			"@context": ["https://www.w3.org/ns/activitystreams"],
 		};
-		return c.json(followersCollection);
+		return activityJson(followersCollection);
 	}
 });
 
@@ -94,7 +100,7 @@ app.get("/:username/outbox", (c) => {
 			},
 			"@context": ["https://www.w3.org/ns/activitystreams"],
 		};
-		return c.json(outboxCollection);
+		return activityJson(outboxCollection);
 	}
 });
 

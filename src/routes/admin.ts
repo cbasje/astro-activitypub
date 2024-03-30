@@ -1,7 +1,8 @@
+import { db } from "$lib/db";
+import { activityJson } from "$lib/utils";
 import { Hono } from "hono";
 import { basicAuth } from "hono/basic-auth";
 import crypto from "node:crypto";
-import { db } from "$lib/db";
 
 const app = new Hono();
 
@@ -58,10 +59,10 @@ app.post("/create", async (c) => {
 		).run(username, apiKey, publicKey, privateKey);
 
 		c.status(200);
-		return c.json({ msg: "ok", apiKey });
+		return activityJson({ msg: "ok", apiKey });
 	} catch (e) {
 		c.status(200);
-		return c.json({ error: e });
+		return activityJson({ error: e });
 	}
 });
 
