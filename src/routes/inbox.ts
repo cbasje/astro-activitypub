@@ -1,7 +1,8 @@
-import { accounts, db } from "$lib/db";
-import { AcceptMessage, FollowMessage } from "$lib/types";
 import { getHttpSignature, randomBytes } from "$lib/crypto";
+import { db } from "$lib/db";
+import { accounts } from "$lib/schema";
 import { toUsername } from "$lib/utils";
+import * as AP from "@activity-kit/types";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import config from "../../config.json";
@@ -11,7 +12,7 @@ const { DOMAIN } = config;
 const app = new Hono();
 
 async function signAndSend(
-	message: AcceptMessage,
+	message: AP.Accept,
 	username: string,
 	privKey: string,
 	targetDomain: URL
@@ -38,7 +39,7 @@ async function signAndSend(
 }
 
 async function sendAcceptMessage(
-	body: FollowMessage,
+	body: AP.Follow,
 	username: string,
 	privKey: string,
 	targetDomain: URL
@@ -51,14 +52,14 @@ async function sendAcceptMessage(
 		type: "Accept",
 		actor: `https://${DOMAIN}/u/${username}`,
 		object: body,
-	} satisfies AcceptMessage;
+	} satisfies AP.Accept;
 
 	await signAndSend(message, username, privKey, targetDomain);
 }
 
 app.post("/", async (c) => {
 	// pass in a name for an account, if the account doesn't exist, create it!
-	const body = await c.req.json<FollowMessage>();
+	const body = await c.req.json<AP.Follow>();
 	const { actor, object, type } = body;
 
 	console.log("body", body);

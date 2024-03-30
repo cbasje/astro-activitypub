@@ -1,6 +1,9 @@
-import { accounts, db, messages } from "$lib/db";
-import { Account, Message } from "$lib/types";
+import { getHttpSignature, randomBytes } from "$lib/crypto";
+import { db } from "$lib/db";
+import { accounts, messages } from "$lib/schema";
+import { Account } from "$lib/types";
 import { toFullMention } from "$lib/utils";
+import * as AP from "@activity-kit/types";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import config from "../../config.json";
@@ -80,7 +83,7 @@ async function createMessage(text: string, username: string, follower: string) {
 		attributedTo: `https://${DOMAIN}/u/${username}`,
 		content: text,
 		to: ["https://www.w3.org/ns/activitystreams#Public"],
-	} satisfies Message;
+	} satisfies AP.Note;
 
 	let createMessage = {
 		"@context": "https://www.w3.org/ns/activitystreams",
@@ -92,7 +95,7 @@ async function createMessage(text: string, username: string, follower: string) {
 		cc: [follower],
 
 		object: noteMessage,
-	} satisfies Message;
+	} satisfies AP.Create;
 
 	await db.insert(messages).values([
 		{

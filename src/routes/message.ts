@@ -1,4 +1,5 @@
-import { db, messages } from "$lib/db";
+import { db } from "$lib/db";
+import { accounts } from "$lib/schema";
 import { activityJson } from "$lib/utils";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";

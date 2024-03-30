@@ -1,4 +1,5 @@
-import { accounts, db } from "$lib/db";
+import { db } from "$lib/db";
+import { accounts } from "$lib/schema";
 import { activityJson, toFullMention } from "$lib/utils";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";

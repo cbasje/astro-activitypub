@@ -1,5 +1,6 @@
-import { accounts, db } from "$lib/db";
 import { generateKeyPair, randomBytes } from "$lib/crypto";
+import { db } from "$lib/db";
+import { accounts } from "$lib/schema";
 import { activityJson } from "$lib/utils";
 import { Hono } from "hono";
 
