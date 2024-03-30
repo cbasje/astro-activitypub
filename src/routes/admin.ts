@@ -1,8 +1,7 @@
 import { accounts, db } from "$lib/db";
+import { generateKeyPair, randomBytes } from "$lib/crypto";
 import { activityJson } from "$lib/utils";
 import { Hono } from "hono";
-import { basicAuth } from "hono/basic-auth";
-import crypto from "node:crypto";
 
 const app = new Hono();
 
@@ -26,39 +25,15 @@ app.post("/create", async (c) => {
 		});
 	}
 
-	// create keypair
-	const { pubKey, privKey } = await new Promise<{ pubKey: string; privKey: string }>(
-		(res, rej) => {
-			crypto.generateKeyPair(
-				"rsa",
-				{
-					modulusLength: 4096,
-					publicKeyEncoding: {
-						type: "spki",
-						format: "pem",
-					},
-					privateKeyEncoding: {
-						type: "pkcs8",
-						format: "pem",
-					},
-				},
-				(err: Error, pubKey: string, privKey: string) => {
-					if (err) rej(err);
-
-					res({ pubKey, privKey });
-				}
-			);
-		}
-	);
-
-	const apiKey: string = crypto.randomBytes(16).toString("hex");
+	const keyPair = await generateKeyPair();
+	const apiKey = await randomBytes(16);
 
 	try {
 		db.insert(accounts).values({
 			username: username.toString(),
 			apiKey,
-			privKey,
-			pubKey,
+			pubKey: keyPair.publicKey,
+			privKey: keyPair.privateKey,
 		});
 
 		c.status(200);

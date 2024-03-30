@@ -1,9 +1,9 @@
 import { accounts, db } from "$lib/db";
 import { AcceptMessage, FollowMessage } from "$lib/types";
+import { getHttpSignature, randomBytes } from "$lib/crypto";
 import { toUsername } from "$lib/utils";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
-import crypto from "node:crypto";
 import config from "../../config.json";
 
 const { DOMAIN } = config;
@@ -14,32 +14,23 @@ async function signAndSend(
 	message: AcceptMessage,
 	username: string,
 	privKey: string,
-	targetDomain: string
+	targetDomain: URL
 ) {
-	// get the URI of the actor object and append 'inbox' to it
-	let inbox = message.object.actor + "/inbox";
-	let inboxFragment = inbox.replace("https://" + targetDomain, "");
-	// get the private key
+	const inbox = message.object.actor + "/inbox";
 
-	const digestHash = crypto.createHash("sha256").update(JSON.stringify(message)).digest("base64");
-
-	const signer = crypto.createSign("sha256");
-	let d = new Date();
-
-	let stringToSign = `(request-target): post ${inboxFragment}\nhost: ${targetDomain}\ndate: ${d.toUTCString()}\ndigest: SHA-256=${digestHash}`;
-	signer.update(stringToSign);
-	signer.end();
-	const signature = signer.sign(privKey);
-	const signature_b64 = signature.toString("base64");
-
-	let header = `keyId="https://${DOMAIN}/u/${username}",headers="(request-target) host date digest",signature="${signature_b64}"`;
+	const { dateHeader, digestHeader, signatureHeader } = await getHttpSignature(
+		targetDomain,
+		new URL(`https://${DOMAIN}/u/${username}`),
+		privKey,
+		message
+	);
 
 	await fetch(inbox, {
 		headers: {
-			Host: targetDomain,
-			Date: d.toUTCString(),
-			Digest: `SHA-256=${digestHash}`,
-			Signature: header,
+			Host: targetDomain.toString(),
+			Date: dateHeader,
+			Digest: digestHeader,
+			Signature: signatureHeader,
 		},
 		method: "POST",
 		body: JSON.stringify(message),
@@ -50,9 +41,9 @@ async function sendAcceptMessage(
 	body: FollowMessage,
 	username: string,
 	privKey: string,
-	targetDomain: string
+	targetDomain: URL
 ) {
-	const guid = crypto.randomBytes(16).toString("hex");
+	const guid = await randomBytes(16);
 
 	let message = {
 		"@context": "https://www.w3.org/ns/activitystreams",
@@ -72,7 +63,7 @@ app.post("/", async (c) => {
 
 	console.log("body", body);
 
-	const targetDomain = new URL(actor).hostname;
+	const targetDomain = new URL(actor);
 
 	// TODO: add "Undo" follow event
 	if (typeof object === "string" && type === "Follow") {

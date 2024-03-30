@@ -3,7 +3,6 @@ import { Account, Message } from "$lib/types";
 import { toFullMention } from "$lib/utils";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import crypto from "node:crypto";
 import config from "../../config.json";
 
 const { DOMAIN } = config;
@@ -48,32 +47,20 @@ app.post("/sendMessage", async (c) => {
 	}
 });
 
-async function signAndSend(
-	message: Message,
-	account: Account,
-	targetDomain: string,
-	inbox: string
-) {
-	// get the private key
-	let inboxFragment = inbox.replace("https://" + targetDomain, "");
-
-	const digestHash = crypto.createHash("sha256").update(JSON.stringify(message)).digest("base64");
-
-	let d = new Date();
-	let stringToSign = `(request-target): post ${inboxFragment}\nhost: ${targetDomain}\ndate: ${d.toUTCString()}\ndigest: SHA-256=${digestHash}`;
-
-	const signer = crypto.createSign("sha256").update(stringToSign).end();
-	const signature = signer.sign(account.privKey);
-	const signature_b64 = signature.toString("base64");
-
-	let header = `keyId="https://${DOMAIN}/u/${account.username}",headers="(request-target) host date digest",signature="${signature_b64}"`;
+async function signAndSend(message: AP.Entity, account: Account, targetDomain: URL, inbox: string) {
+	const { dateHeader, digestHeader, signatureHeader } = await getHttpSignature(
+		targetDomain,
+		new URL(`https://${DOMAIN}/u/${account.username}`),
+		account.privKey,
+		message
+	);
 
 	await fetch(inbox, {
 		headers: {
-			Host: targetDomain,
-			Date: d.toUTCString(),
-			Digest: `SHA-256=${digestHash}`,
-			Signature: header,
+			Host: targetDomain.toString(),
+			Date: dateHeader,
+			Digest: digestHeader,
+			Signature: signatureHeader,
 		},
 		method: "POST",
 		body: JSON.stringify(message),
@@ -81,13 +68,13 @@ async function signAndSend(
 }
 
 async function createMessage(text: string, username: string, follower: string) {
-	const guidCreate: string = crypto.randomBytes(16).toString("hex");
-	const guidNote: string = crypto.randomBytes(16).toString("hex");
+	const guidCreate: string = await randomBytes(16);
+	const guidNote: string = await randomBytes(16);
 
 	let d = new Date();
 
 	let noteMessage = {
-		id: `https://${DOMAIN}/m/${guidNote}`,
+		id: new URL(`https://${DOMAIN}/m/${guidNote}`),
 		type: "Note",
 		published: d.toISOString(),
 		attributedTo: `https://${DOMAIN}/u/${username}`,
@@ -127,8 +114,7 @@ async function sendCreateMessage(text: string, account: Account) {
 
 	for await (let follower of account.followers) {
 		let inbox = follower + "/inbox";
-		let myURL = new URL(follower);
-		let targetDomain = myURL.host;
+		let targetDomain = new URL(follower);
 		let message = await createMessage(text, account.username, follower);
 		await signAndSend(message, account, targetDomain, inbox);
 	}
