@@ -1,4 +1,4 @@
-import { db } from "$lib/db";
+import { accounts, db } from "$lib/db";
 import { activityJson } from "$lib/utils";
 import { Hono } from "hono";
 import { basicAuth } from "hono/basic-auth";
@@ -19,7 +19,7 @@ app.post("/create", async (c) => {
 	const formData = await c.req.formData();
 	const username = formData.get("username");
 
-	if (username === undefined) {
+	if (!username) {
 		c.status(400);
 		return c.json({
 			msg: 'Bad request. Please make sure "username" is a property in the POST body.',
@@ -27,7 +27,7 @@ app.post("/create", async (c) => {
 	}
 
 	// create keypair
-	const { publicKey, privateKey } = await new Promise<{ publicKey: string; privateKey: string }>(
+	const { pubKey, privKey } = await new Promise<{ pubKey: string; privKey: string }>(
 		(res, rej) => {
 			crypto.generateKeyPair(
 				"rsa",
@@ -42,21 +42,24 @@ app.post("/create", async (c) => {
 						format: "pem",
 					},
 				},
-				(err: Error, publicKey: string, privateKey: string) => {
+				(err: Error, pubKey: string, privKey: string) => {
 					if (err) rej(err);
 
-					res({ publicKey, privateKey });
+					res({ pubKey, privKey });
 				}
 			);
 		}
 	);
 
-	const apiKey = crypto.randomBytes(16).toString("hex");
+	const apiKey: string = crypto.randomBytes(16).toString("hex");
 
 	try {
-		db.prepare(
-			"insert or replace into accounts(username, api_key, pub_key, priv_key) values(?, ?, ?, ?)"
-		).run(username, apiKey, publicKey, privateKey);
+		db.insert(accounts).values({
+			username: username.toString(),
+			apiKey,
+			privKey,
+			pubKey,
+		});
 
 		c.status(200);
 		return activityJson({ msg: "ok", apiKey });

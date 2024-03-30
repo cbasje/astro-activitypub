@@ -1,5 +1,6 @@
-import { db } from "$lib/db";
-import { activityJson, toAccount, toUsername } from "$lib/utils";
+import { accounts, db } from "$lib/db";
+import { activityJson, toFullMention, toUsername } from "$lib/utils";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import config from "../../config.json";
 
@@ -9,7 +10,7 @@ const app = new Hono();
 
 function createWebfinger(username: string) {
 	return {
-		subject: `acct:${toAccount(username)}`,
+		subject: `acct:${toFullMention(username)}`,
 
 		links: [
 			{
@@ -21,7 +22,7 @@ function createWebfinger(username: string) {
 	};
 }
 
-app.get("/", (c) => {
+app.get("/", async (c) => {
 	let resource = c.req.query("resource");
 	const { username } = toUsername(resource ?? "");
 
@@ -31,7 +32,13 @@ app.get("/", (c) => {
 			'Bad request. Please make sure "acct:USER@DOMAIN" is what you are sending as the "resource" query parameter.'
 		);
 	} else {
-		let result = db.prepare("select username from accounts where username = ?").get(username);
+		const [result] = await db
+			.select({
+				username: accounts.username,
+			})
+			.from(accounts)
+			.where(eq(accounts.username, username))
+			.limit(1);
 
 		if (!result) {
 			c.status(404);

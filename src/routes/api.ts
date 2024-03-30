@@ -1,5 +1,7 @@
-import { db } from "$lib/db";
-import { activityJson, parseJSON, toAccount } from "$lib/utils";
+import { accounts, db, messages } from "$lib/db";
+import { Account, Message } from "$lib/types";
+import { toFullMention } from "$lib/utils";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import crypto from "node:crypto";
 import config from "../../config.json";
@@ -14,12 +16,26 @@ app.post("/sendMessage", async (c) => {
 	const apiKey = formData.get("apiKey");
 	const message = formData.get("message");
 
-	// check to see if your API key matches
-	let result = db.prepare("select api_key from accounts where username = ?").get(username);
+	if (!username || !apiKey || !message) {
+		c.status(400);
+		return c.json({ msg: "Bad request." });
+	}
 
-	if (result?.api_key === apiKey) {
+	// check to see if your API key matches
+	const [result] = await db
+		.select()
+		.from(accounts)
+		.where(
+			and(
+				eq(accounts.username, username?.toString()),
+				eq(accounts.apiKey, apiKey?.toString())
+			)
+		)
+		.limit(1);
+
+	if (result) {
 		try {
-			await sendCreateMessage(message, username);
+			await sendCreateMessage(message.toString(), result);
 
 			return c.json({ msg: "ok" });
 		} catch (e) {
@@ -32,45 +48,41 @@ app.post("/sendMessage", async (c) => {
 	}
 });
 
-async function signAndSend(message, username: string, targetDomain: string, inbox: string) {
+async function signAndSend(
+	message: Message,
+	account: Account,
+	targetDomain: string,
+	inbox: string
+) {
 	// get the private key
 	let inboxFragment = inbox.replace("https://" + targetDomain, "");
 
-	let result = db.prepare("select priv_key from accounts where username = ?").get(username);
+	const digestHash = crypto.createHash("sha256").update(JSON.stringify(message)).digest("base64");
 
-	if (!result) {
-		console.log(`No record found for ${username}.`);
-	} else {
-		const digestHash = crypto
-			.createHash("sha256")
-			.update(JSON.stringify(message))
-			.digest("base64");
+	let d = new Date();
+	let stringToSign = `(request-target): post ${inboxFragment}\nhost: ${targetDomain}\ndate: ${d.toUTCString()}\ndigest: SHA-256=${digestHash}`;
 
-		let d = new Date();
-		let stringToSign = `(request-target): post ${inboxFragment}\nhost: ${targetDomain}\ndate: ${d.toUTCString()}\ndigest: SHA-256=${digestHash}`;
+	const signer = crypto.createSign("sha256").update(stringToSign).end();
+	const signature = signer.sign(account.privKey);
+	const signature_b64 = signature.toString("base64");
 
-		const signer = crypto.createSign("sha256").update(stringToSign).end();
-		const signature = signer.sign(result?.priv_key);
-		const signature_b64 = signature.toString("base64");
+	let header = `keyId="https://${DOMAIN}/u/${account.username}",headers="(request-target) host date digest",signature="${signature_b64}"`;
 
-		let header = `keyId="https://${DOMAIN}/u/${username}",headers="(request-target) host date digest",signature="${signature_b64}"`;
-
-		await fetch(inbox, {
-			headers: {
-				Host: targetDomain,
-				Date: d.toUTCString(),
-				Digest: `SHA-256=${digestHash}`,
-				Signature: header,
-			},
-			method: "POST",
-			body: JSON.stringify(message),
-		});
-	}
+	await fetch(inbox, {
+		headers: {
+			Host: targetDomain,
+			Date: d.toUTCString(),
+			Digest: `SHA-256=${digestHash}`,
+			Signature: header,
+		},
+		method: "POST",
+		body: JSON.stringify(message),
+	});
 }
 
-function createMessage(text: string, username: string, follower) {
-	const guidCreate = crypto.randomBytes(16).toString("hex");
-	const guidNote = crypto.randomBytes(16).toString("hex");
+async function createMessage(text: string, username: string, follower: string) {
+	const guidCreate: string = crypto.randomBytes(16).toString("hex");
+	const guidNote: string = crypto.randomBytes(16).toString("hex");
 
 	let d = new Date();
 
@@ -81,7 +93,7 @@ function createMessage(text: string, username: string, follower) {
 		attributedTo: `https://${DOMAIN}/u/${username}`,
 		content: text,
 		to: ["https://www.w3.org/ns/activitystreams#Public"],
-	};
+	} satisfies Message;
 
 	let createMessage = {
 		"@context": "https://www.w3.org/ns/activitystreams",
@@ -93,34 +105,32 @@ function createMessage(text: string, username: string, follower) {
 		cc: [follower],
 
 		object: noteMessage,
-	};
+	} satisfies Message;
 
-	db.prepare("insert or replace into messages(guid, message) values(?, ?)").run(
-		guidCreate,
-		JSON.stringify(createMessage)
-	);
-	db.prepare("insert or replace into messages(guid, message) values(?, ?)").run(
-		guidNote,
-		JSON.stringify(noteMessage)
-	);
+	await db.insert(messages).values([
+		{
+			guid: guidCreate,
+			message: createMessage,
+		},
+		{
+			guid: guidNote,
+			message: noteMessage,
+		},
+	]);
 
 	return createMessage;
 }
 
-async function sendCreateMessage(text: string, username: string) {
-	let result = db.prepare("select followers from accounts where username = ?").get(username);
+async function sendCreateMessage(text: string, account: Account) {
+	if (!account.followers || account.followers.length === 0)
+		throw new Error(`No followers for account ${toFullMention(account.username)}`);
 
-	let followers = parseJSON(result?.followers);
-
-	if (!followers || followers.length === 0)
-		throw new Error(`No followers for account ${toAccount(username)}`);
-
-	for await (let follower of followers) {
+	for await (let follower of account.followers) {
 		let inbox = follower + "/inbox";
 		let myURL = new URL(follower);
 		let targetDomain = myURL.host;
-		let message = createMessage(text, username, follower);
-		await signAndSend(message, username, targetDomain, inbox);
+		let message = await createMessage(text, account.username, follower);
+		await signAndSend(message, account, targetDomain, inbox);
 	}
 }
 

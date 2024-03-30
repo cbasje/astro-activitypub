@@ -12,6 +12,9 @@ export const parseJSON = (text: string) => {
 
 const accountRegex = /^(?:acct:)?(?<username>\w+)@?(?<domain>[A-z0-9\-\.]+)?$/g;
 export const toUsername = (input: string) => {
+	if (input.startsWith("https://"))
+		return { username: input.replace(`https://${DOMAIN}/u/`, ""), domain: undefined };
+
 	const matches = accountRegex.exec(input);
 
 	if (matches && matches.groups && matches.groups["username"]) {
@@ -27,7 +30,7 @@ export const toUsername = (input: string) => {
 	};
 };
 
-export const toAccount = (username: string) => {
+export const toFullMention = (username: string) => {
 	if (username.includes("@")) return username;
 	else return `${username}@${DOMAIN}`;
 };
@@ -41,7 +44,7 @@ export const activityJson = (json: string | unknown) => {
 	return new Response(body, {
 		status: 200,
 		headers: {
-			"Content-Type": "application/activity+json",
+			"Content-Type": "application/activity+json; charset=utf-8",
 		},
 	});
 };

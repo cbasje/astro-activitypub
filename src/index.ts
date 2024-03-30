@@ -1,4 +1,3 @@
-import { db } from "$lib/db";
 import admin from "$routes/admin";
 import api from "$routes/api";
 import dashboard from "$routes/dashboard";
@@ -11,13 +10,6 @@ import { cors } from "hono/cors";
 import config from "../config.json";
 
 const { PORT } = config;
-
-// if there is no `accounts` table in the DB, create an empty table
-db.prepare(
-	"CREATE TABLE IF NOT EXISTS accounts (username TEXT PRIMARY KEY, priv_key TEXT, pub_key TEXT, api_key TEXT, followers TEXT, messages TEXT)"
-).run();
-// if there is no `messages` table in the DB, create an empty table
-db.prepare("CREATE TABLE IF NOT EXISTS messages (guid TEXT PRIMARY KEY, message TEXT)").run();
 
 const app = new Hono();
 

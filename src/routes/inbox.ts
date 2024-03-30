@@ -1,6 +1,8 @@
-import { db } from "$lib/db";
-import { parseJSON } from "$lib/utils";
-import { Context, Hono } from "hono";
+import { accounts, db } from "$lib/db";
+import { AcceptMessage, FollowMessage } from "$lib/types";
+import { toUsername } from "$lib/utils";
+import { eq } from "drizzle-orm";
+import { Hono } from "hono";
 import crypto from "node:crypto";
 import config from "../../config.json";
 
@@ -8,7 +10,12 @@ const { DOMAIN } = config;
 
 const app = new Hono();
 
-async function signAndSend(message, username: string, privKey: string, targetDomain: string) {
+async function signAndSend(
+	message: AcceptMessage,
+	username: string,
+	privKey: string,
+	targetDomain: string
+) {
 	// get the URI of the actor object and append 'inbox' to it
 	let inbox = message.object.actor + "/inbox";
 	let inboxFragment = inbox.replace("https://" + targetDomain, "");
@@ -40,7 +47,7 @@ async function signAndSend(message, username: string, privKey: string, targetDom
 }
 
 async function sendAcceptMessage(
-	body: Record<string, any>,
+	body: FollowMessage,
 	username: string,
 	privKey: string,
 	targetDomain: string
@@ -53,39 +60,41 @@ async function sendAcceptMessage(
 		type: "Accept",
 		actor: `https://${DOMAIN}/u/${username}`,
 		object: body,
-	};
+	} satisfies AcceptMessage;
 
 	await signAndSend(message, username, privKey, targetDomain);
 }
 
 app.post("/", async (c) => {
 	// pass in a name for an account, if the account doesn't exist, create it!
-	const body = await c.req.json();
+	const body = await c.req.json<FollowMessage>();
 	const { actor, object, type } = body;
 
 	console.log("body", body);
 
-	const myURL = new URL(actor);
-	let targetDomain = myURL.hostname;
+	const targetDomain = new URL(actor).hostname;
 
 	// TODO: add "Undo" follow event
 	if (typeof object === "string" && type === "Follow") {
-		let username = object.replace(`https://${DOMAIN}/u/`, "");
+		const { username } = toUsername(object);
 
-		// Add the user to the DB of accounts that follow the account
-		// get the followers JSON for the user
-		let result = db
-			.prepare("select priv_key, followers from accounts where username = ?")
-			.get(username);
+		const [result] = await db
+			.select({
+				privKey: accounts.privKey,
+				followers: accounts.followers,
+			})
+			.from(accounts)
+			.where(eq(accounts.username, username ?? ""))
+			.limit(1);
 
 		if (!result) {
 			c.status(404);
 			return c.text(`No record found for ${username}.`);
 		} else {
-			await sendAcceptMessage(body, username, result?.priv_key, targetDomain);
+			await sendAcceptMessage(body, username!, result.privKey, targetDomain);
 
 			// update followers
-			let followers = parseJSON(result?.followers || "[]");
+			let followers = result.followers;
 
 			if (followers) {
 				followers.push(actor);
@@ -95,13 +104,8 @@ app.post("/", async (c) => {
 				followers = [actor];
 			}
 
-			let followersText = JSON.stringify(followers);
-
 			// Update into DB
-			db.prepare("update accounts set followers=? where username = ?").run(
-				followersText,
-				username
-			);
+			db.update(accounts).set({ followers }).where(eq(accounts.username, username!));
 
 			return c.text("Updated followers!");
 		}

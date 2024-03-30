@@ -1,5 +1,6 @@
-import { db } from "$lib/db";
-import { activityJson, parseJSON, toAccount } from "$lib/utils";
+import { accounts, db } from "$lib/db";
+import { activityJson, toFullMention } from "$lib/utils";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import config from "../../config.json";
 
@@ -26,18 +27,24 @@ function createActor(username: string, pubKey: string) {
 	};
 }
 
-app.get("/:username", (c) => {
+app.get("/:username", async (c) => {
 	const username = c.req.param("username");
 
 	if (!username) {
 		c.status(400);
 		return c.text("Bad request.");
 	} else {
-		let result = db.prepare("select pub_key from accounts where username = ?").get(username);
+		const [result] = await db
+			.select({
+				pubKey: accounts.pubKey,
+			})
+			.from(accounts)
+			.where(eq(accounts.username, username))
+			.limit(1);
 
 		if (!result) {
 			c.status(404);
-			return c.text(`No record found for ${toAccount(username)}.`);
+			return c.text(`No record found for ${toFullMention(username)}.`);
 		}
 
 		const showJson = c.req.header("Accept")?.startsWith("application/");
@@ -46,33 +53,37 @@ app.get("/:username", (c) => {
 			return c.html("Hello <b>HTML</b>!");
 		}
 
-		return activityJson(createActor(username, result?.pub_key));
+		return activityJson(createActor(username, result.pubKey));
 	}
 });
 
-app.get("/:username/followers", (c) => {
+app.get("/:username/followers", async (c) => {
 	const username = c.req.param("username");
 
 	if (!username) {
 		c.status(400);
 		return c.text("Bad request.");
 	} else {
-		let result = db.prepare("select followers from accounts where username = ?").get(username);
-		console.log(result);
+		const [result] = await db
+			.select({
+				followers: accounts.followers,
+			})
+			.from(accounts)
+			.where(eq(accounts.username, username))
+			.limit(1);
 
-		let followers = parseJSON(result?.followers || "[]");
 		let followersCollection = {
+			"@context": ["https://www.w3.org/ns/activitystreams"],
 			type: "OrderedCollection",
-			totalItems: followers.length,
+			totalItems: result.followers?.length || 0,
 			id: `https://${DOMAIN}/u/${username}/followers`,
 			first: {
 				type: "OrderedCollectionPage",
-				totalItems: followers.length,
+				totalItems: result.followers?.length || 0,
 				partOf: `https://${DOMAIN}/u/${username}/followers`,
-				orderedItems: followers,
+				orderedItems: result.followers || [],
 				id: `https://${DOMAIN}/u/${username}/followers?page=1`,
 			},
-			"@context": ["https://www.w3.org/ns/activitystreams"],
 		};
 		return activityJson(followersCollection);
 	}
@@ -88,6 +99,7 @@ app.get("/:username/outbox", (c) => {
 		let messages: string[] = [];
 
 		let outboxCollection = {
+			"@context": ["https://www.w3.org/ns/activitystreams"],
 			type: "OrderedCollection",
 			totalItems: messages.length,
 			id: `https://${DOMAIN}/u/${username}/outbox`,
@@ -98,7 +110,6 @@ app.get("/:username/outbox", (c) => {
 				orderedItems: messages,
 				id: `https://${DOMAIN}/u/${username}/outbox?page=1`,
 			},
-			"@context": ["https://www.w3.org/ns/activitystreams"],
 		};
 		return activityJson(outboxCollection);
 	}
