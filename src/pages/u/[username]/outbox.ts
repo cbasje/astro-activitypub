@@ -24,7 +24,7 @@ export const GET: APIRoute = async ({ params }) => {
 			type: "OrderedCollectionPage",
 			totalItems: result.length,
 			partOf: outboxEndpoint,
-			orderedItems: result.map((m) => new URL(m.guid, messageEndpoint(""))),
+			orderedItems: result.map((m) => messageEndpoint(m.guid)),
 			id: paginationEndpoint,
 		},
 	} satisfies AP.OrderedCollection;

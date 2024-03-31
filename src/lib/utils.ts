@@ -35,5 +35,5 @@ export const toFullMention = (username: string) => {
 	else return `${username}@${new URL(import.meta.env.SITE).hostname}`;
 };
 
-export const messageEndpoint = (guid: string) => new URL(`/m/${guid}`, import.meta.env.SITE);
-export const userEndpoint = (username: string) => new URL(`/u/${username}`, import.meta.env.SITE);
+export const messageEndpoint = (guid: string) => new URL(`/m/${guid}/`, import.meta.env.SITE);
+export const userEndpoint = (username: string) => new URL(`/u/${username}/`, import.meta.env.SITE);
