@@ -33,7 +33,7 @@ const createWebfinger = (username: string) => {
 
 export const GET: APIRoute = async ({ url }) => {
 	const resource = url.searchParams.get("resource");
-	const { username } = toUsername(resource ?? "");
+	const { username } = toUsername(resource?.toString() ?? "");
 
 	if (!resource || !resource.includes("acct:") || !username)
 		return text(
