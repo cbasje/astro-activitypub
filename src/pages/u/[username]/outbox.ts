@@ -8,7 +8,10 @@ export const GET: APIRoute = async ({ params }) => {
 	const { username } = params;
 
 	if (!username) return text("Bad request.", 400);
-	const endpoint = userEndpoint(username);
+
+	const outboxEndpoint = new URL("outbox", userEndpoint(username));
+	const paginationEndpoint = new URL(outboxEndpoint);
+	paginationEndpoint.searchParams.set("page", "1");
 
 	const result = await db.select().from(messages).where(eq(messages.account, username));
 
@@ -16,13 +19,13 @@ export const GET: APIRoute = async ({ params }) => {
 		"@context": [new URL("https://www.w3.org/ns/activitystreams")],
 		type: "OrderedCollection",
 		totalItems: result.length,
-		id: new URL("/outbox", endpoint),
+		id: outboxEndpoint,
 		first: {
 			type: "OrderedCollectionPage",
 			totalItems: result.length,
-			partOf: new URL("/outbox", endpoint),
+			partOf: outboxEndpoint,
 			orderedItems: result.map((m) => new URL(m.guid, messageEndpoint(""))),
-			id: new URL("/outbox?page=1", endpoint),
+			id: paginationEndpoint,
 		},
 	} satisfies AP.OrderedCollection;
 	return activityJson(outboxCollection);

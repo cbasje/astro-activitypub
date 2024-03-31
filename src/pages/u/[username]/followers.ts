@@ -8,7 +8,10 @@ export const GET: APIRoute = async ({ params }) => {
 	const { username } = params;
 
 	if (!username) return text("Bad request.", 400);
-	const endpoint = userEndpoint(username);
+
+	const followersEndpoint = new URL("followers", userEndpoint(username));
+	const paginationEndpoint = new URL(followersEndpoint);
+	paginationEndpoint.searchParams.set("page", "1");
 
 	const [result] = await db
 		.select({
@@ -22,13 +25,13 @@ export const GET: APIRoute = async ({ params }) => {
 		"@context": [new URL("https://www.w3.org/ns/activitystreams")],
 		type: "OrderedCollection",
 		totalItems: result.followers?.length || 0,
-		id: new URL("/followers", endpoint),
+		id: followersEndpoint,
 		first: {
 			type: "OrderedCollectionPage",
 			totalItems: result.followers?.length || 0,
-			partOf: new URL("/followers", endpoint),
+			partOf: followersEndpoint,
 			orderedItems: result.followers || [],
-			id: new URL("/followers?page=1", endpoint),
+			id: paginationEndpoint,
 		},
 	} satisfies AP.OrderedCollection;
 	return activityJson(followersCollection);
