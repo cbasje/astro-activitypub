@@ -1,0 +1,29 @@
+---
+import { messages, db } from "astro:db";
+
+const allMessages = await db.select().from(messages);
+---
+
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Messages Page</title>
+
+		<style>
+			body {
+				font-family: sans-serif;
+				font-size: 1.2rem;
+				margin: 2rem;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Messages</h1>
+
+		<ul>
+			{allMessages.map(a => (
+				<li>{JSON.stringify(a.message)} by {a.account}</li>
+			))}
+		</ul>
+	</body>
+</html>
