@@ -1,7 +1,7 @@
+import { jrdJson, text } from "$lib/response";
+import { toFullMention, toUsername, userEndpoint } from "$lib/utils";
 import { APIRoute } from "astro";
-import { toUsername, toFullMention, userEndpoint } from "$lib/utils";
-import { activityJson, text } from "$lib/response";
-import { db, accounts, eq } from "astro:db";
+import { accounts, db, eq } from "astro:db";
 
 const createWebfinger = (username: string) => {
 	return {
@@ -43,5 +43,5 @@ export const GET: APIRoute = async ({ url }) => {
 
 	if (!result) return text(`No record found for ${username}.`, 404);
 
-	return activityJson(createWebfinger(username));
+	return jrdJson(createWebfinger(username));
 };
