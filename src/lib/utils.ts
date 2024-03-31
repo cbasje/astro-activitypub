@@ -6,19 +6,21 @@ export const parseJSON = (text: string) => {
 	}
 };
 
-const accountRegex = /^(?:acct:)?@?(?<username>\w+)@?(?<domain>[A-z0-9\-\.]+)?$/g;
-const urlRegex = /^https:\/\/(?<domain>[A-z0-9\-\.]+)\/u\/(?<username>\w+)?/g;
 export const toUsername = (input: string) => {
-	let matches: RegExpExecArray | null;
-	if (input.startsWith("https://")) matches = urlRegex.exec(input);
-	else matches = accountRegex.exec(input);
+	input = input.replace(/https:\/\/|acct:/gi, "");
+	console.log("⌨️", input);
 
-	console.log("⌨️", input, typeof input, input.replace("acct:", "").split("@")[0], matches);
-
-	if (matches && matches.groups && matches.groups["username"]) {
+	if (input.includes("@")) {
+		const [username, domain] = input.split("@");
 		return {
-			username: matches.groups["username"],
-			domain: matches.groups["domain"] ?? undefined,
+			username,
+			domain,
+		};
+	} else if (input.includes("/u/")) {
+		const [domain, username] = input.split("/u/");
+		return {
+			username,
+			domain,
 		};
 	}
 
