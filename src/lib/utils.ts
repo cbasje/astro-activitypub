@@ -12,6 +12,7 @@ export const toUsername = (input: string) => {
 		return { username: new URL(input).pathname, domain: undefined };
 
 	const matches = accountRegex.exec(input);
+	console.log("⌨️", input, matches);
 
 	if (matches && matches.groups && matches.groups["username"]) {
 		return {
