@@ -13,7 +13,7 @@ export const toUsername = (input: string) => {
 	if (input.startsWith("https://")) matches = urlRegex.exec(input);
 	else matches = accountRegex.exec(input);
 
-	console.log("⌨️", input, matches);
+	console.log("⌨️", input, typeof input, input.replace("acct:", "").split("@")[0], matches);
 
 	if (matches && matches.groups && matches.groups["username"]) {
 		return {
