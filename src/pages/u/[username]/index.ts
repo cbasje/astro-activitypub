@@ -6,7 +6,7 @@ import type { APIRoute } from "astro";
 import { accounts, db, eq } from "astro:db";
 
 const createActor = (account: Partial<Account>, pubKey: string) => {
-	const endpoint = userEndpoint(account.username ?? "");
+	const endpoint = userEndpoint(account.username!);
 
 	return {
 		"@context": [
@@ -16,10 +16,22 @@ const createActor = (account: Partial<Account>, pubKey: string) => {
 
 		id: endpoint,
 		type: "Person",
-		preferredUsername: account.name ?? undefined,
-		inbox: new URL("/api/inbox", import.meta.env.SITE),
+		name: account.name ?? undefined,
+		preferredUsername: account.username!,
+		summary: "<p>I created a systemd playground to help people learn systemd.</p>",
+		url: endpoint,
+		discoverable: true,
+		indexable: true,
+		memorial: false,
+		published: "2022-05-01T00:00:00Z",
+
+		inbox: new URL("/api/inbox", import.meta.env.SITE), // TODO: Personal inbox?
 		outbox: new URL("/outbox", endpoint),
 		followers: new URL("/followers", endpoint),
+
+		endpoints: {
+			sharedInbox: new URL("/api/inbox", import.meta.env.SITE),
+		},
 
 		publicKey: {
 			id: endpoint.toString() + "#main-key",
