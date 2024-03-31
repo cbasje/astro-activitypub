@@ -15,8 +15,6 @@ jobs:
         steps:
             - name: Checkout repository and submodules
               uses: actions/checkout@v4
-              with:
-                  token: ${{ secrets.ACCESS_TOKEN }}
 
             - name: Setup Fly.io
               uses: superfly/flyctl-actions/setup-flyctl@master
