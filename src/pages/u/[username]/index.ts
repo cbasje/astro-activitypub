@@ -18,8 +18,10 @@ const createActor = (account: Partial<Account>, pubKey: string) => {
 		type: "Person",
 		name: account.name ?? undefined,
 		preferredUsername: account.username!,
-		summary: "<p>I created a systemd playground to help people learn systemd.</p>",
+		summary: "<p>Not-perfect perfectionist</p>",
 		url: endpoint,
+
+		manuallyApprovesFollowers: false,
 		discoverable: true,
 		indexable: true,
 		memorial: false,
@@ -31,6 +33,12 @@ const createActor = (account: Partial<Account>, pubKey: string) => {
 
 		endpoints: {
 			sharedInbox: new URL("/api/inbox", import.meta.env.SITE),
+		},
+
+		icon: {
+			type: "Image",
+			mediaType: "image/jpeg",
+			url: new URL("/icon.jpeg", import.meta.env.SITE),
 		},
 
 		publicKey: {

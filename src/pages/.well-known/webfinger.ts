@@ -24,8 +24,8 @@ const createWebfinger = (username: string) => {
 			},
 			{
 				rel: "http://webfinger.net/rel/avatar",
-				type: "image/png",
-				href: "https://media.mas.to/accounts/avatars/109/772/734/566/866/469/original/94d402ddf59e1507.png",
+				type: "image/jpeg",
+				href: new URL("/icon.jpeg", import.meta.env.SITE),
 			},
 		],
 	};
