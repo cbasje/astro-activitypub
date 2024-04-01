@@ -16,7 +16,11 @@ export const GET: APIRoute = async ({ params }) => {
 	const result = await db.select().from(messages).where(eq(messages.account, username));
 
 	let outboxCollection = {
-		"@context": [new URL("https://www.w3.org/ns/activitystreams")],
+		"@context": [
+			new URL("https://www.w3.org/ns/activitystreams"),
+			{ sensitive: "as:sensitive" },
+		],
+
 		type: "OrderedCollection",
 		totalItems: result.length,
 		id: outboxEndpoint,

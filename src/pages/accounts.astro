@@ -1,7 +1,10 @@
 ---
 import { accounts, db } from "astro:db";
+import { getTableColumns } from 'drizzle-orm';
 
-const allAccounts = await db.select().from(accounts);
+const { privKey, ...rest } = getTableColumns(accounts);
+
+const allAccounts = await db.select({...rest}).from(accounts);
 ---
 
 <html lang="en">

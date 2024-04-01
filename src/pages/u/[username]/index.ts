@@ -16,7 +16,7 @@ const createActor = (account: Partial<Account>, pubKey: string) => {
 
 		id: endpoint,
 		type: "Person",
-		name: account.name ?? undefined,
+		name: account.name || undefined,
 		preferredUsername: account.username!,
 		summary: "<p>Not-perfect perfectionist</p>",
 		url: endpoint,
@@ -25,7 +25,7 @@ const createActor = (account: Partial<Account>, pubKey: string) => {
 		discoverable: true,
 		indexable: true,
 		memorial: false,
-		published: "2022-05-01T00:00:00Z",
+		published: account.createdAt,
 
 		inbox: new URL("/api/inbox", import.meta.env.SITE), // TODO: Personal inbox?
 		outbox: new URL("outbox", endpoint),
@@ -67,7 +67,6 @@ export const GET: APIRoute = async ({ params, request }) => {
 	if (!result) return text(`No record found for ${toFullMention(username)}.`, 404);
 
 	const showJson = request.headers.get("Accept")?.startsWith("application/");
-
 	if (!showJson) return html("Hello <b>HTML</b>!");
 
 	return activityJson(createActor(result, result.pubKey));

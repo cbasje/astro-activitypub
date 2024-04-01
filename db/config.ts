@@ -1,4 +1,4 @@
-import { column, defineDb, defineTable } from "astro:db";
+import { NOW, column, defineDb, defineTable } from "astro:db";
 
 const accounts = defineTable({
 	columns: {
@@ -8,6 +8,7 @@ const accounts = defineTable({
 		pubKey: column.text(),
 		apiKey: column.text(),
 		followers: column.json({ optional: true }),
+		createdAt: column.date({ default: NOW }),
 	},
 });
 
@@ -16,6 +17,7 @@ const messages = defineTable({
 		guid: column.text({ primaryKey: true }),
 		message: column.json(),
 		account: column.text({ references: () => accounts.columns.username }),
+		createdAt: column.date({ default: NOW }),
 	},
 });
 
