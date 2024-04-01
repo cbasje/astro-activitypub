@@ -1,0 +1,32 @@
+---
+import { accounts, db } from "astro:db";
+import { getTableColumns } from 'drizzle-orm';
+
+const { privKey, ...rest } = getTableColumns(accounts);
+
+const allAccounts = await db.select({...rest}).from(accounts);
+---
+
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Accounts Page</title>
+
+		<style>
+			body {
+				font-family: sans-serif;
+				font-size: 1.2rem;
+				margin: 2rem;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Accounts</h1>
+
+		<ul>
+			{allAccounts.map(a => (
+				<li>{a.username}, {a.apiKey}</li>
+			))}
+		</ul>
+	</body>
+</html>

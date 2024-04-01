@@ -1,7 +1,3 @@
-import config from "../../config.json";
-
-const { DOMAIN } = config;
-
 export const parseJSON = (text: string) => {
 	try {
 		return JSON.parse(text);
@@ -10,17 +6,23 @@ export const parseJSON = (text: string) => {
 	}
 };
 
-const accountRegex = /^(?:acct:)?(?<username>\w+)@?(?<domain>[A-z0-9\-\.]+)?$/g;
-export const toUsername = (input: string) => {
-	if (input.startsWith("https://"))
-		return { username: input.replace(`https://${DOMAIN}/u/`, ""), domain: undefined };
+export const toUsername = (input: string | undefined) => {
+	if (!input) return { username: undefined, domain: undefined };
 
-	const matches = accountRegex.exec(input);
+	input = input.replace(/https:\/\/|acct:/gi, "");
+	console.log("⌨️", input);
 
-	if (matches && matches.groups && matches.groups["username"]) {
+	if (input.includes("@")) {
+		const [username, domain] = input.split("@");
 		return {
-			username: matches.groups["username"],
-			domain: matches.groups["domain"] ?? undefined,
+			username,
+			domain,
+		};
+	} else if (input.includes("/u/")) {
+		const [domain, username] = input.split("/u/");
+		return {
+			username: username.replace("/", ""),
+			domain,
 		};
 	}
 
@@ -32,19 +34,8 @@ export const toUsername = (input: string) => {
 
 export const toFullMention = (username: string) => {
 	if (username.includes("@")) return username;
-	else return `${username}@${DOMAIN}`;
+	else return `${username}@${new URL(import.meta.env.SITE).hostname}`;
 };
 
-export const activityJson = (json: string | unknown) => {
-	let body: string;
-
-	if (typeof json === "string") body = JSON.stringify(parseJSON(json));
-	else body = JSON.stringify(json);
-
-	return new Response(body, {
-		status: 200,
-		headers: {
-			"Content-Type": "application/activity+json; charset=utf-8",
-		},
-	});
-};
+export const messageEndpoint = (guid: string) => new URL(`/m/${guid}/`, import.meta.env.SITE);
+export const userEndpoint = (username: string) => new URL(`/u/${username}/`, import.meta.env.SITE);
