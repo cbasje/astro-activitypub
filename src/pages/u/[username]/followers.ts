@@ -2,34 +2,66 @@ import { activityJson, text } from "$lib/response";
 import { userEndpoint } from "$lib/utils";
 import * as AP from "@activity-kit/types";
 import type { APIRoute } from "astro";
-import { db, eq, followers } from "astro:db";
+import { count, db, eq, followers } from "astro:db";
 
-export const GET: APIRoute = async ({ params }) => {
+const PAGE_SIZE = 10;
+
+export const GET: APIRoute = async ({ params, url }) => {
 	const { username } = params;
+	const page = url.searchParams.get("page");
+	const pageNumber = Number(page);
 
 	if (!username) return text("Bad request.", 400);
 
-	const followersEndpoint = new URL("followers", userEndpoint(username));
-	const paginationEndpoint = new URL(followersEndpoint);
-	paginationEndpoint.searchParams.set("page", "1");
+	const outboxEndpoint = new URL("outbox", userEndpoint(username));
+	const paginationEndpoint = new URL(outboxEndpoint);
 
-	const accountFollowers = await db
+	let outboxCollection: AP.OrderedCollection = {
+		"@context": new URL("https://www.w3.org/ns/activitystreams"),
+		id: outboxEndpoint,
+		type: "OrderedCollection",
+	};
+
+	if (page === null || Number.isNaN(pageNumber)) {
+		const [result] = await db
+			.select({
+				total: count(),
+			})
+			.from(followers)
+			.where(eq(followers.account, username));
+		outboxCollection["totalItems"] = result.total;
+
+		paginationEndpoint.searchParams.set("page", "1");
+		outboxCollection["first"] = new URL(paginationEndpoint);
+
+		paginationEndpoint.searchParams.set("page", Math.ceil(result.total / PAGE_SIZE).toString());
+		outboxCollection["last"] = new URL(paginationEndpoint);
+
+		return activityJson(outboxCollection);
+	}
+
+	const result = await db
 		.select()
 		.from(followers)
-		.where(eq(followers.account, username));
+		.where(eq(followers.account, username))
+		.offset((pageNumber - 1) * PAGE_SIZE)
+		.limit(PAGE_SIZE);
 
-	let followersCollection = {
-		"@context": [new URL("https://www.w3.org/ns/activitystreams")],
-		type: "OrderedCollection",
-		totalItems: accountFollowers.length,
-		id: followersEndpoint,
-		first: {
-			type: "OrderedCollectionPage",
-			totalItems: accountFollowers.length,
-			partOf: followersEndpoint,
-			orderedItems: accountFollowers.map((f) => new URL(f.id)),
-			id: paginationEndpoint,
-		},
-	} satisfies AP.OrderedCollection;
-	return activityJson(followersCollection);
+	outboxCollection["orderedItems"] = result.map((m) => new URL(m.id));
+
+	paginationEndpoint.searchParams.set("page", page);
+	outboxCollection["id"] = new URL(paginationEndpoint);
+
+	paginationEndpoint.searchParams.set(
+		"page",
+		Math.max(pageNumber + 1, Math.ceil(result.length / PAGE_SIZE)).toString()
+	);
+	outboxCollection["next"] = new URL(paginationEndpoint);
+
+	paginationEndpoint.searchParams.set("page", Math.min(0, pageNumber - 1).toString());
+	outboxCollection["prev"] = new URL(paginationEndpoint);
+
+	outboxCollection["partOf"] = outboxEndpoint;
+
+	return activityJson(outboxCollection);
 };
