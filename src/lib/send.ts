@@ -16,7 +16,7 @@ export async function signAndSend(
 		message
 	);
 
-	await fetch(inbox, {
+	const response = await fetch(inbox, {
 		headers: {
 			Host: inbox.hostname.toString(),
 			Date: dateHeader,
@@ -26,6 +26,8 @@ export async function signAndSend(
 		method: "POST",
 		body: JSON.stringify(message),
 	});
+
+	if (!response.ok) throw new Error(`Not able to send to inbox: ${inbox.toString()}`);
 }
 
 export async function signAndSendToFollowers(

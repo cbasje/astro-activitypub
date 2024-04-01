@@ -29,6 +29,8 @@ async function getFollowerDetails(actor: AP.EntityReference) {
 			Accept: "application/activity+json",
 		},
 	});
+	if (!response.ok) throw new Error(`Not able to access follower details: ${actor.toString()}`);
+
 	const data = (await response.json()) as AP.Actor;
 
 	return {
