@@ -6,7 +6,7 @@ import * as AP from "@activity-kit/types";
 import type { APIRoute } from "astro";
 import { accounts, and, db, eq, messages } from "astro:db";
 
-async function createBoostMessage(link: URL, username: string) {
+async function createBoostMessage(id: URL, username: string) {
 	const guid: string = await randomBytes(16);
 
 	let d = new Date();
@@ -38,6 +38,17 @@ async function createBoostMessage(link: URL, username: string) {
 	};
 }
 
+async function getMessageDetails(link: URL) {
+	const response = await fetch(link, {
+		headers: {
+			Accept: "application/activity+json",
+		},
+	});
+	if (!response.ok) throw new Error(`Not able to access message details: ${link.toString()}`);
+
+	return (await response.json()) as AP.Note;
+}
+
 export const POST: APIRoute = async ({ request }) => {
 	const formData = await request.formData();
 	const username = formData.get("username");
@@ -63,7 +74,10 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!result) return json({ msg: "Invalid API key" }, 400);
 
 	try {
-		let message = await createBoostMessage(new URL(link?.toString()), result.username);
+		let boostedMessage = await getMessageDetails(new URL(link?.toString()));
+		if (!boostedMessage || !boostedMessage.id) throw new Error("No message details found");
+
+		let message = await createBoostMessage(boostedMessage.id, result.username);
 
 		await signAndSendToFollowers(message, result.username, result.privKey, result.followers);
 
