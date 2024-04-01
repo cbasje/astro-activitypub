@@ -27,7 +27,7 @@ const createActor = (account: Partial<Account>, pubKey: string) => {
 		memorial: false,
 		published: account.createdAt,
 
-		inbox: new URL("/api/inbox", import.meta.env.SITE), // TODO: Personal inbox?
+		inbox: new URL("inbox", endpoint),
 		outbox: new URL("outbox", endpoint),
 		followers: new URL("followers", endpoint),
 

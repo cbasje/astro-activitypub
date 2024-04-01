@@ -6,7 +6,9 @@ export const parseJSON = (text: string) => {
 	}
 };
 
-export const toUsername = (input: string) => {
+export const toUsername = (input: string | undefined) => {
+	if (!input) return { username: undefined, domain: undefined };
+
 	input = input.replace(/https:\/\/|acct:/gi, "");
 	console.log("⌨️", input);
 

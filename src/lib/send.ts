@@ -7,8 +7,10 @@ export async function signAndSend(
 	message: AP.Entity,
 	username: string,
 	privKey: string,
-	inbox: URL
+	inbox: URL | string
 ) {
+	if (typeof inbox === "string") inbox = new URL(inbox);
+
 	const { dateHeader, digestHeader, signatureHeader } = await getHttpSignature(
 		inbox,
 		userEndpoint(username),

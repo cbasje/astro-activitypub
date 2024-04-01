@@ -34,21 +34,20 @@ async function getFollowerDetails(actor: AP.EntityReference) {
 	const data = (await response.json()) as AP.Actor;
 
 	return {
-		id: data.id!,
-		inbox: new URL(data.inbox.toString()),
-		sharedInbox: data.endpoints?.sharedInbox ?? undefined,
+		id: data.id!.toString(),
+		inbox: data.inbox.toString(),
+		sharedInbox: data.endpoints?.sharedInbox?.toString() ?? null,
 	} satisfies Follower;
 }
 
 export const POST: APIRoute = async ({ request }) => {
-	const body = (await request.json()) as AP.Follow;
-	const { actor, object, type } = body;
+	const body = (await request.json()) as AP.Activity;
 
-	console.log("body", body);
+	console.log("body ~ api/inbox", body);
 
 	// TODO: add "Undo" follow event
-	if (type === "Follow") {
-		const { username } = toUsername(object.toString());
+	if (body.type === "Follow") {
+		const { username } = toUsername(body.object?.toString());
 
 		const [result] = await db
 			.select({
@@ -63,16 +62,16 @@ export const POST: APIRoute = async ({ request }) => {
 		try {
 			let message = await createAcceptMessage(body, username!);
 
-			let newFollower = await getFollowerDetails(Array.isArray(actor) ? actor[0] : actor);
+			let newFollower = await getFollowerDetails(
+				Array.isArray(body.actor) ? body.actor[0] : body.actor
+			);
 			if (!newFollower || !newFollower.inbox) throw new Error("No follower details found");
 
 			await signAndSend(message, username!, result.privKey, newFollower.inbox);
 
 			// Add to the DB
 			await db.insert(followers).values({
-				id: newFollower.id.toString(),
-				inbox: newFollower.inbox.toString(),
-				sharedInbox: newFollower.sharedInbox?.toString() ?? undefined,
+				...newFollower,
 				account: username!,
 			});
 
