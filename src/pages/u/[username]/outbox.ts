@@ -1,5 +1,5 @@
 import { activityJson, text } from "$lib/response";
-import { messageEndpoint, userEndpoint } from "$lib/utils";
+import { userEndpoint } from "$lib/utils";
 import * as AP from "@activity-kit/types";
 import type { APIRoute } from "astro";
 import { count, db, eq, messages } from "astro:db";
@@ -44,7 +44,7 @@ export const GET: APIRoute = async ({ params, url }) => {
 		.select()
 		.from(messages)
 		.where(eq(messages.account, username))
-		.offset(pageNumber * PAGE_SIZE)
+		.offset((pageNumber - 1) * PAGE_SIZE)
 		.limit(PAGE_SIZE);
 
 	outboxCollection["orderedItems"] = result.map((m) => m.message);
