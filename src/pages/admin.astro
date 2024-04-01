@@ -37,18 +37,31 @@
 		</form>
 
 		<form method="POST" action="/api/send-message">
-			<h2>Send Message To Followers</h2>
+			<h2>Publish Message</h2>
 			<p>
-				Enter an account name, its API key, and a message. This message will send to
-				all its followers.
+				Enter an account username, its API key, and a message. This message will be public and sent to its followers.
 			</p>
 			<input type="text" name="username" placeholder="my-username" />
 
 			<input type="text" name="apiKey" placeholder="1234567890abcdef" />
 
-			<input type="text" name="message" placeholder="Hello there." />
+			<input type="text" name="text" placeholder="Hello there." />
 
-			<button type="submit">Send Message</button>
+			<button type="submit">Send</button>
+		</form>
+		
+		<form method="POST" action="/api/send-message">
+			<h2>Boost Link</h2>
+			<p>
+				Enter an account name, its API key, and a message link.
+			</p>
+			<input type="text" name="username" placeholder="my-username" />
+
+			<input type="text" name="apiKey" placeholder="1234567890abcdef" />
+
+			<input type="url" name="link" placeholder="https://..." />
+
+			<button type="submit">Submit</button>
 		</form>
 	</body>
 </html>
