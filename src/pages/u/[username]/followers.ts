@@ -1,9 +1,8 @@
 import { activityJson, text } from "$lib/response";
-import type { Follower } from "$lib/types";
 import { userEndpoint } from "$lib/utils";
 import * as AP from "@activity-kit/types";
 import type { APIRoute } from "astro";
-import { accounts, db, eq } from "astro:db";
+import { db, eq, followers } from "astro:db";
 
 export const GET: APIRoute = async ({ params }) => {
 	const { username } = params;
@@ -14,27 +13,21 @@ export const GET: APIRoute = async ({ params }) => {
 	const paginationEndpoint = new URL(followersEndpoint);
 	paginationEndpoint.searchParams.set("page", "1");
 
-	const [result] = await db
-		.select({
-			followers: accounts.followers,
-		})
-		.from(accounts)
-		.where(eq(accounts.username, username))
-		.limit(1);
-
-	// FIXME: remove this
-	const followers = (result.followers || []) as Follower[];
+	const accountFollowers = await db
+		.select()
+		.from(followers)
+		.where(eq(followers.account, username));
 
 	let followersCollection = {
 		"@context": [new URL("https://www.w3.org/ns/activitystreams")],
 		type: "OrderedCollection",
-		totalItems: followers.length,
+		totalItems: accountFollowers.length,
 		id: followersEndpoint,
 		first: {
 			type: "OrderedCollectionPage",
-			totalItems: followers.length,
+			totalItems: accountFollowers.length,
 			partOf: followersEndpoint,
-			orderedItems: followers.map((f) => f.id),
+			orderedItems: accountFollowers.map((f) => new URL(f.id)),
 			id: paginationEndpoint,
 		},
 	} satisfies AP.OrderedCollection;

@@ -4,7 +4,7 @@ import { signAndSendToFollowers } from "$lib/send";
 import { messageEndpoint, userEndpoint } from "$lib/utils";
 import * as AP from "@activity-kit/types";
 import type { APIRoute } from "astro";
-import { accounts, and, db, eq, messages } from "astro:db";
+import { accounts, and, db, eq, followers, messages } from "astro:db";
 
 async function createBoostMessage(id: URL, username: string) {
 	const guid: string = await randomBytes(16);
@@ -60,7 +60,7 @@ export const POST: APIRoute = async ({ request }) => {
 	}
 
 	// check to see if your API key matches
-	const [result] = await db
+	const [account] = await db
 		.select()
 		.from(accounts)
 		.where(
@@ -71,15 +71,20 @@ export const POST: APIRoute = async ({ request }) => {
 		)
 		.limit(1);
 
-	if (!result) return json({ msg: "Invalid API key" }, 400);
+	if (!account) return json({ msg: "Invalid API key" }, 400);
+
+	const accountFollowers = await db
+		.select()
+		.from(followers)
+		.where(eq(followers.account, username?.toString()));
 
 	try {
 		let boostedMessage = await getMessageDetails(new URL(link?.toString()));
 		if (!boostedMessage || !boostedMessage.id) throw new Error("No message details found");
 
-		let message = await createBoostMessage(boostedMessage.id, result.username);
+		let message = await createBoostMessage(boostedMessage.id, account.username);
 
-		await signAndSendToFollowers(message, result.username, result.privKey, result.followers);
+		await signAndSendToFollowers(message, account.username, account.privKey, accountFollowers);
 
 		return json({ msg: "ok" });
 	} catch (e) {

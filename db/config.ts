@@ -7,7 +7,6 @@ const accounts = defineTable({
 		privKey: column.text(),
 		pubKey: column.text(),
 		apiKey: column.text(),
-		followers: column.json({ optional: true }),
 		createdAt: column.date({ default: NOW }),
 	},
 });
@@ -21,7 +20,17 @@ const messages = defineTable({
 	},
 });
 
+const followers = defineTable({
+	columns: {
+		id: column.text({ primaryKey: true }),
+		inbox: column.text(),
+		sharedInbox: column.text({ optional: true }),
+		account: column.text({ references: () => accounts.columns.username }),
+	},
+	// TODO: add index
+});
+
 // https://astro.build/db/config
 export default defineDb({
-	tables: { accounts, messages },
+	tables: { accounts, messages, followers },
 });

@@ -1,9 +1,4 @@
-import { accounts } from "astro:db";
+import { accounts, followers } from "astro:db";
 
 export type Account = typeof accounts.$inferSelect;
-
-export type Follower = {
-	id: URL;
-	inbox: URL;
-	sharedInbox: URL | undefined;
-};
+export type Follower = typeof followers.$inferSelect;
