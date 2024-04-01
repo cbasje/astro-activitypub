@@ -17,7 +17,7 @@ async function createBoostMessage(id: URL, username: string) {
 		published: d,
 		actor: userEndpoint(username),
 
-		object: link,
+		object: id,
 
 		to: [new URL("https://www.w3.org/ns/activitystreams#Public")],
 		cc: [new URL("followers", userEndpoint(username))], // TODO: Add original poster
