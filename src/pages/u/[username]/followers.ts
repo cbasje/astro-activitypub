@@ -1,4 +1,5 @@
 import { activityJson, text } from "$lib/response";
+import type { Follower } from "$lib/types";
 import { userEndpoint } from "$lib/utils";
 import * as AP from "@activity-kit/types";
 import type { APIRoute } from "astro";
@@ -21,16 +22,19 @@ export const GET: APIRoute = async ({ params }) => {
 		.where(eq(accounts.username, username))
 		.limit(1);
 
+	// FIXME: remove this
+	const followers = (result.followers || []) as Follower[];
+
 	let followersCollection = {
 		"@context": [new URL("https://www.w3.org/ns/activitystreams")],
 		type: "OrderedCollection",
-		totalItems: result.followers?.length || 0,
+		totalItems: followers.length,
 		id: followersEndpoint,
 		first: {
 			type: "OrderedCollectionPage",
-			totalItems: result.followers?.length || 0,
+			totalItems: followers.length,
 			partOf: followersEndpoint,
-			orderedItems: result.followers || [],
+			orderedItems: followers.map((f) => f.id),
 			id: paginationEndpoint,
 		},
 	} satisfies AP.OrderedCollection;
