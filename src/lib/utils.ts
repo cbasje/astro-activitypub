@@ -21,7 +21,7 @@ export const toUsername = (input: string | undefined) => {
 	} else if (input.includes("/u/")) {
 		const [domain, username] = input.split("/u/");
 		return {
-			username,
+			username: username.replace("/", ""),
 			domain,
 		};
 	}
