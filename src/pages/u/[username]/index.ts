@@ -12,11 +12,22 @@ const createActor = (account: Partial<Account>, pubKey: string) => {
 		"@context": [
 			new URL("https://www.w3.org/ns/activitystreams"),
 			new URL("https://w3id.org/security/v1"),
+			{
+				schema: "http://schema.org#",
+				value: "schema:value",
+
+				toot: "http://joinmastodon.org/ns#",
+				memorial: "toot:memorial",
+				indexable: "toot:indexable",
+				discoverable: "toot:discoverable",
+				PropertyValue: "schema:PropertyValue",
+				Emoji: "toot:Emoji",
+			},
 		],
 
 		id: endpoint,
 		type: "Person",
-		name: account.name || undefined,
+		name: `${account.name} :porpoise:` || undefined,
 		preferredUsername: account.username!,
 		summary: "<p>Not-perfect perfectionist</p>",
 		url: endpoint,
@@ -40,6 +51,19 @@ const createActor = (account: Partial<Account>, pubKey: string) => {
 			mediaType: "image/jpeg",
 			url: new URL("/icon.jpeg", import.meta.env.SITE),
 		},
+		tag: [
+			{
+				id: "https://social.lol/emojis/28283",
+				type: "Emoji",
+				name: ":porpoise:",
+				updated: new Date(),
+				icon: {
+					type: "Image",
+					mediaType: "image/png",
+					url: new URL("/emoji.png", import.meta.env.SITE),
+				},
+			},
+		],
 		attachment: [
 			{
 				type: "PropertyValue",
