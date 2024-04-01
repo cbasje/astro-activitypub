@@ -40,6 +40,19 @@ const createActor = (account: Partial<Account>, pubKey: string) => {
 			mediaType: "image/jpeg",
 			url: new URL("/icon.jpeg", import.meta.env.SITE),
 		},
+		attachment: [
+			{
+				type: "PropertyValue",
+				name: "Homepage",
+				value: `<a href="${
+					import.meta.env.SITE
+				}" target="_blank" rel="nofollow noopener noreferrer me" translate="no"><span class="invisible">${
+					new URL(import.meta.env.SITE).protocol
+				}/</span><span class="">${
+					new URL(import.meta.env.SITE).hostname
+				}</span><span class="invisible"></span></a>`,
+			},
+		],
 
 		publicKey: {
 			id: endpoint.toString() + "#main-key",
