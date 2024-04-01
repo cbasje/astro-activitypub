@@ -5,7 +5,7 @@ import type { Follower } from "$lib/types";
 import { messageEndpoint, toUsername, userEndpoint } from "$lib/utils";
 import * as AP from "@activity-kit/types";
 import type { APIRoute } from "astro";
-import { accounts, db, eq, followers } from "astro:db";
+import { accounts, db, and, eq, followers } from "astro:db";
 
 async function createAcceptMessage(body: AP.Follow, username: string) {
 	const guid = await randomBytes(16);
@@ -40,48 +40,68 @@ async function getFollowerDetails(actor: AP.EntityReference) {
 	} satisfies Follower;
 }
 
+async function follow(body: AP.Follow) {
+	const { username } = toUsername(body.object?.toString());
+
+	const [result] = await db
+		.select({
+			privKey: accounts.privKey,
+		})
+		.from(accounts)
+		.where(eq(accounts.username, username ?? ""))
+		.limit(1);
+
+	if (!result) throw new Error(`No record found for ${username}.`); // TODO: 404
+
+	let message = await createAcceptMessage(body, username!);
+
+	let actor = await getFollowerDetails(Array.isArray(body.actor) ? body.actor[0] : body.actor);
+	if (!actor || !actor.inbox) throw new Error("No follower details found");
+
+	await signAndSend(message, username!, result.privKey, actor.inbox);
+
+	// Add to the DB
+	await db.insert(followers).values({
+		...actor,
+		account: username!,
+	});
+}
+
+async function unfollow(body: AP.Follow) {
+	const { username } = toUsername(body.object?.toString());
+
+	if (!username) throw new Error(`No record found for ${username}.`); // TODO: 404
+
+	let actor = Array.isArray(body.actor) ? body.actor[0] : body.actor;
+
+	// Delete from the DB
+	await db
+		.delete(followers)
+		.where(and(eq(followers.id, actor.toString()), eq(followers.account, username!)));
+}
+
 export const POST: APIRoute = async ({ request }) => {
 	const body = (await request.json()) as AP.Activity;
 
 	console.log("body ~ api/inbox", body);
 
-	// TODO: add "Undo" follow event
-	if (body.type === "Follow") {
-		const { username } = toUsername(body.object?.toString());
+	try {
+		if (body.type === "Follow") {
+			await follow(body as AP.Follow);
 
-		const [result] = await db
-			.select({
-				privKey: accounts.privKey,
-			})
-			.from(accounts)
-			.where(eq(accounts.username, username ?? ""))
-			.limit(1);
-
-		if (!result) return text(`No record found for ${username}.`, 404);
-
-		try {
-			let message = await createAcceptMessage(body, username!);
-
-			let newFollower = await getFollowerDetails(
-				Array.isArray(body.actor) ? body.actor[0] : body.actor
-			);
-			if (!newFollower || !newFollower.inbox) throw new Error("No follower details found");
-
-			await signAndSend(message, username!, result.privKey, newFollower.inbox);
-
-			// Add to the DB
-			await db.insert(followers).values({
-				...newFollower,
-				account: username!,
-			});
-
-			return text("Updated followers!");
-		} catch (e) {
-			return json({ msg: e.message }, 500);
+			return text("Added follow!");
 		}
-	} else {
-		return text("Not supported yet!", 501);
+
+		if (body.type === "Undo" && body.object?.type === "Follow") {
+			await unfollow(body.object as AP.Follow);
+
+			return text("Deleted follow!");
+		}
+	} catch (e) {
+		return json({ msg: e.message }, 500);
 	}
+
+	return text("Not supported yet!", 501);
 
 	// Types:
 	// When someone is thrown off the servers
@@ -99,20 +119,6 @@ export const POST: APIRoute = async ({ request }) => {
 	//  signatureValue: "...",
 	//  },
 	// }
-
-	// Undo Follow
-	// {
-	// "@context": "https://www.w3.org/ns/activitystreams",
-	//  id: "https://mas.to/users/sebastiaan#follows/6377183/undo",
-	//  type: "Undo",
-	//  actor: "https://mas.to/users/sebastiaan",
-	//  object: {
-	//  id: "https://mas.to/71c022c1-692f-4b89-a2d7-2b8777c9a570",
-	//  type: "Follow",
-	//  actor: "https://mas.to/users/sebastiaan",
-	//  object: "https://social.benjami.in/u/sebas/",
-	//  },
-	//  }
 
 	// {
 	//  "@context": "https://www.w3.org/ns/activitystreams",
