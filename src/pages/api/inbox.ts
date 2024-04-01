@@ -1,54 +1,41 @@
-import { getHttpSignature, randomBytes } from "$lib/crypto";
-import { text } from "$lib/response";
-import { toUsername, userEndpoint } from "$lib/utils";
+import { randomBytes } from "$lib/crypto";
+import { json, text } from "$lib/response";
+import { signAndSend } from "$lib/send";
+import type { Follower } from "$lib/types";
+import { messageEndpoint, toUsername, userEndpoint } from "$lib/utils";
 import * as AP from "@activity-kit/types";
 import type { APIRoute } from "astro";
 import { accounts, db, eq } from "astro:db";
 
-async function signAndSend(
-	message: AP.Accept,
-	username: string,
-	privKey: string,
-	targetDomain: URL
-) {
-	const inbox = message.object.actor + "/inbox";
-
-	const { dateHeader, digestHeader, signatureHeader } = await getHttpSignature(
-		targetDomain,
-		userEndpoint(username),
-		privKey,
-		message
-	);
-
-	await fetch(inbox, {
-		headers: {
-			Host: targetDomain.toString(),
-			Date: dateHeader,
-			Digest: digestHeader!,
-			Signature: signatureHeader,
-		},
-		method: "POST",
-		body: JSON.stringify(message),
-	});
-}
-
-async function sendAcceptMessage(
-	body: AP.Follow,
-	username: string,
-	privKey: string,
-	targetDomain: URL
-) {
+async function createAcceptMessage(body: AP.Follow, username: string) {
 	const guid = await randomBytes(16);
 
 	let message = {
-		"@context": "https://www.w3.org/ns/activitystreams",
-		id: new URL(guid, import.meta.env.SITE),
+		"@context": new URL("https://www.w3.org/ns/activitystreams"),
+
+		id: messageEndpoint(guid),
 		type: "Accept",
 		actor: userEndpoint(username),
+
 		object: body,
 	} satisfies AP.Accept;
 
-	await signAndSend(message, username, privKey, targetDomain);
+	return message;
+}
+
+async function getFollowerDetails(actor: AP.EntityReference) {
+	const response = await fetch(actor.toString(), {
+		headers: {
+			Accept: "application/activity+json",
+		},
+	});
+	const data = (await response.json()) as AP.Actor;
+
+	return {
+		id: data.id!,
+		inbox: new URL(data.inbox.toString()),
+		sharedInbox: data.endpoints?.sharedInbox ?? undefined,
+	} satisfies Follower;
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -57,11 +44,9 @@ export const POST: APIRoute = async ({ request }) => {
 
 	console.log("body", body);
 
-	const targetDomain = new URL(actor);
-
 	// TODO: add "Undo" follow event
 	if (type === "Follow") {
-		const { username } = toUsername(object);
+		const { username } = toUsername(object.toString());
 
 		const [result] = await db
 			.select({
@@ -74,24 +59,29 @@ export const POST: APIRoute = async ({ request }) => {
 
 		if (!result) return text(`No record found for ${username}.`, 404);
 
-		await sendAcceptMessage(body, username!, result.privKey, targetDomain);
+		try {
+			let message = await createAcceptMessage(body, username!);
 
-		// update followers
-		let followers = result.followers;
+			let newFollower = await getFollowerDetails(Array.isArray(actor) ? actor[0] : actor);
+			if (!newFollower || !newFollower.inbox) throw new Error("No follower details found");
 
-		if (followers) {
-			followers.push(actor);
-			// unique items
-			followers = [...new Set(followers)];
-		} else {
-			followers = [actor];
+			await signAndSend(message, username!, result.privKey, newFollower.inbox);
+
+			// FIXME: remove this
+			const followers = (result.followers || []) as Follower[];
+			followers.push(newFollower);
+
+			// Update into DB
+			await db
+				.update(accounts)
+				.set({ followers: [...new Set(followers)] })
+				.where(eq(accounts.username, username!));
+
+			return text("Updated followers!");
+		} catch (e) {
+			return json({ msg: e.message }, 500);
 		}
-
-		// Update into DB
-		await db.update(accounts).set({ followers }).where(eq(accounts.username, username!));
-
-		return text("Updated followers!");
 	} else {
-		return text("Not supported yet!", 405);
+		return text("Not supported yet!", 501);
 	}
 };
